@@ -72,24 +72,23 @@ const ChatBot: React.FC<ChatBotProps> = ({
   }, [messages]);
 
   useEffect(() => {
-if (modeProp && modeProp !== mode) {
-  setMode(modeProp);
-  setMessages([]);
-  setInput('');
-  setIsTyping(false);
-  chatSessionRef.current = null;
-  setPendingToolCall(null);
-}
-
+    if (modeProp && modeProp !== mode) {
+      setMode(modeProp);
+      setMessages([]);
+      setInput('');
+      setIsTyping(false);
+      chatSessionRef.current = null;
+      setPendingToolCall(null);
+    }
   }, [modeProp]);
 
   useEffect(() => {
     if (isOpen) {
         if (!chatSessionRef.current || chatSessionModeRef.current !== mode) {
-  chatSessionRef.current = createChatSession(modeProp);
-  chatSessionModeRef.current = mode;
-  setPendingToolCall(null);
-}
+          chatSessionRef.current = createChatSession(modeProp);
+          chatSessionModeRef.current = mode;
+          setPendingToolCall(null);
+        }
         if (messages.length === 0) {
             let greetingText = "";
             
@@ -194,95 +193,87 @@ if (modeProp && modeProp !== mode) {
     const textToSend = overrideInput || input;
     if (!textToSend.trim() || !chatSessionRef.current) return;
 
-if (pendingToolCall) {
-  const correctionText = textToSend;
+    if (pendingToolCall) {
+      const correctionText = textToSend;
 
-  const toolResponse = {
-    functionResponse: {
-      name: pendingToolCall.name,
-      id: pendingToolCall.id,
-      response: { result: `Correction: ${correctionText}` }
+      const toolResponse = {
+        functionResponse: {
+          name: pendingToolCall.name,
+          id: pendingToolCall.id,
+          response: { result: `Correction: ${correctionText}` }
+        }
+      };
+
+      setPendingToolCall(null);
+      if (!silent) setMessages(prev => [...prev, { role: 'user', text: correctionText, timestamp: new Date() }]);
+      setInput('');
+      setIsTyping(true);
+
+      try {
+        await chatSessionRef.current!.sendMessage({ message: toolResponse });
+        const resp2 = await chatSessionRef.current!.sendMessage({ message: correctionText });
+        const nextToolCall = (resp2 as any).functionCalls?.[0] ?? null;
+
+        if (nextToolCall) {
+          setPendingToolCall(nextToolCall);
+        } else {
+          setMessages(prev => [...prev, {
+            role: 'model',
+            text: "No updated tool call returned. Add watts/hours in the correction.",
+            isError: true,
+            timestamp: new Date(),
+            category: modeProp
+          }]);
+        }
+      } catch (err) {
+        setMessages(prev => [...prev, {
+          role: 'model',
+          text: "Spec Asst correction failed. Hit Reset and retry.",
+          isError: true,
+          timestamp: new Date(),
+          category: modeProp
+        }]);
+        chatSessionRef.current = null;
+      } finally {
+        setIsTyping(false);
+      }
+      return;
     }
-  };
-
-  setPendingToolCall(null);
-  if (!silent) setMessages(prev => [...prev, { role: 'user', text: correctionText, timestamp: new Date() }]);
-  setInput('');
-  setIsTyping(true);
-
-  try {
-    // Step A: close the pending tool-call turn (Gemini requires this turn order). [web:74][web:70]
-    await chatSessionRef.current!.sendMessage({ message: toolResponse });
-
-    // Step B: immediately re-run Spec Asst so it returns a NEW tool call and you get a NEW modal.
-    const resp2 = await chatSessionRef.current!.sendMessage({ message: correctionText });
-    const nextToolCall = (resp2 as any).functionCalls?.[0] ?? null;
-
-    if (nextToolCall) {
-      setPendingToolCall(nextToolCall);
-    } else {
-      setMessages(prev => [...prev, {
-        role: 'model',
-        text: "No updated tool call returned. Add watts/hours in the correction.",
-        isError: true,
-        timestamp: new Date(),
-        category: modeProp
-      }]);
-    }
-  } catch (err) {
-    setMessages(prev => [...prev, {
-      role: 'model',
-      text: "Spec Asst correction failed. Hit Reset and retry.",
-      isError: true,
-      timestamp: new Date(),
-      category: modeProp
-    }]);
-    chatSessionRef.current = null;
-  } finally {
-    setIsTyping(false);
-  }
-
-  return;
-}
 
     if (!silent) setMessages(prev => [...prev, { role: 'user', text: textToSend, timestamp: new Date(), category: 'general' }]);
     setInput('');
     setIsTyping(true);
 
-// --- BEGIN SPEC-ASST SINGLE-SHOT (NO STREAM) ---
-if (modeProp !== 'general') {
-  // (Keep your existing “user message added to UI” lines above this insert.)
-  try {
-    const resp = await chatSessionRef.current!.sendMessage({ message: textToSend });
-    const toolCall = (resp as any).functionCalls?.[0] ?? null;
+    if (modeProp !== 'general') {
+      try {
+        const resp = await chatSessionRef.current!.sendMessage({ message: textToSend });
+        const toolCall = (resp as any).functionCalls?.[0] ?? null;
 
-    if (toolCall) {
-      setPendingToolCall(toolCall);
-    } else {
-      setMessages(prev => [...prev, {
-        role: 'model',
-        text: "No tool call returned. Try a more specific model/spec.",
-        isError: true,
-        timestamp: new Date(),
-        category: modeProp
-      }]);
+        if (toolCall) {
+          setPendingToolCall(toolCall);
+        } else {
+          setMessages(prev => [...prev, {
+            role: 'model',
+            text: "No tool call returned. Try a more specific model/spec.",
+            isError: true,
+            timestamp: new Date(),
+            category: modeProp
+          }]);
+        }
+      } catch (e) {
+        setMessages(prev => [...prev, {
+          role: 'model',
+          text: "Spec Asst session error. Reset and retry.",
+          isError: true,
+          timestamp: new Date(),
+          category: modeProp
+        }]);
+        chatSessionRef.current = null;
+      } finally {
+        setIsTyping(false);
+      }
+      return;
     }
-  } catch (e) {
-    setMessages(prev => [...prev, {
-      role: 'model',
-      text: "Spec Asst session error. Reset and retry.",
-      isError: true,
-      timestamp: new Date(),
-      category: modeProp
-    }]);
-    chatSessionRef.current = null;
-  } finally {
-    setIsTyping(false);
-  }
-  return;
-}
-// --- END SPEC-ASST SINGLE-SHOT (NO STREAM) ---
-
 
     try {
         const result = await chatSessionRef.current.sendMessageStream({ message: textToSend });
@@ -334,10 +325,12 @@ if (modeProp !== 'general') {
       {!isOpen && (
         <button 
           onClick={onOpen} 
-          className="fixed bottom-6 right-6 bg-white w-14 h-14 rounded-full shadow-2xl transition-transform hover:scale-110 z-50 ring-4 ring-black/10 flex items-center justify-center overflow-hidden"
+          className="fixed bottom-8 right-8 w-16 h-16 bg-blue-600 rounded-full shadow-[0_0_30px_rgba(37,99,235,0.4)] transition-all hover:scale-110 active:scale-95 z-50 ring-8 ring-slate-900/80 flex items-center justify-center text-white border border-blue-400/20"
           aria-label="Open Chat"
         >
-          {/* Plain white circle */}
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="w-8 h-8">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M8.625 12a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H8.25m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H12m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 0 1-2.555-.337A5.972 5.972 0 0 1 5.41 20.97a5.969 5.969 0 0 1-.474-.065 4.48 4.48 0 0 0 .978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25Z" />
+          </svg>
         </button>
       )}
 
