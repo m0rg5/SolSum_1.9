@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { ChargingSource, BatteryConfig } from '../types';
 
@@ -167,10 +166,10 @@ const ChargingTable: React.FC<ChargingTableProps> = ({
             })}
             <tr>
               <td colSpan={8} className="p-2"><div className="flex gap-2">
-                <button onClick={onAddSource} className="flex-1 flex items-center justify-center gap-2 py-3 border border-dashed border-slate-700 rounded-lg hover:bg-slate-800 text-slate-500 text-[10px] font-black uppercase tracking-widest transition-all">
-                   Add Source
+                <button onClick={onAddSource} className="w-[15%] flex-none flex items-center justify-center gap-2 py-3 border border-dashed border-slate-700 rounded-lg hover:bg-slate-800 text-slate-500 text-lg font-medium transition-all">
+                   +
                 </button>
-                <button onClick={onAIAddSource} className="flex-1 flex items-center justify-center gap-2 py-3 border border-dashed border-blue-900/50 bg-blue-950/20 rounded-lg hover:bg-blue-900/40 text-blue-400 text-[10px] font-black uppercase tracking-widest transition-all">
+                <button onClick={onAIAddSource} className="flex-1 flex items-center justify-center gap-2 py-3 border border-dashed border-blue-900/50 bg-blue-950/20 rounded-lg hover:bg-blue-900/40 text-blue-400 text-[12px] font-black uppercase tracking-widest transition-all">
                    ✨ Spec Asst.
                 </button>
               </div></td>

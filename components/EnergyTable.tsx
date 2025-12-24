@@ -144,8 +144,8 @@ const EnergyTable: React.FC<EnergyTableProps> = ({ items, systemVoltage, onUpdat
         })}
         <tr>
           <td colSpan={9} className="px-4 py-2"><div className="flex gap-2">
-            <button onClick={() => onAddItem(category)} className="flex-1 flex items-center justify-center gap-2 py-3 border border-dashed border-slate-700 rounded-lg hover:bg-slate-800 text-slate-500 text-[10px] font-black uppercase tracking-widest transition-all">Add Load</button>
-            <button onClick={() => onAIAddItem(category)} className="flex-1 flex items-center justify-center gap-2 py-3 border border-dashed border-blue-900/50 bg-blue-950/20 rounded-lg hover:bg-blue-900/40 text-blue-400/80 text-[10px] font-black uppercase tracking-widest transition-all">✨ Spec Asst.</button>
+            <button onClick={() => onAddItem(category)} className="w-[15%] flex-none flex items-center justify-center gap-2 py-3 border border-dashed border-slate-700 rounded-lg hover:bg-slate-800 text-slate-500 text-lg font-medium transition-all">+</button>
+            <button onClick={() => onAIAddItem(category)} className="flex-1 flex items-center justify-center gap-2 py-3 border border-dashed border-blue-900/50 bg-blue-950/20 rounded-lg hover:bg-blue-900/40 text-blue-400/80 text-[12px] font-black uppercase tracking-widest transition-all">✨ Spec Asst.</button>
           </div></td>
         </tr>
       </React.Fragment>
