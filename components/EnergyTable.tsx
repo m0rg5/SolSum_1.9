@@ -12,7 +12,14 @@ interface EnergyTableProps {
   onAIAddItem: (category: LoadCategory) => void;
   onReorder: (fromId: string, toId: string) => void;
   onSort: (key: string, direction: 'asc' | 'desc') => void;
+  visibleCategories?: LoadCategory[];
 }
+
+const CATEGORY_DISPLAY_NAMES: Record<string, string> = {
+  [LoadCategory.DC_LOADS]: 'DC (Native &/or via Converter)',
+  [LoadCategory.AC_LOADS]: 'AC (via Inverter)',
+  [LoadCategory.SYSTEM_MGMT]: 'System Mgmt'
+};
 
 const isMgmt = (item: PowerItem) => 
   item.name.toLowerCase().includes('inverter') || 
@@ -80,18 +87,39 @@ const SortHeader = ({ label, sortKey, currentSort, onSort, className, widthClass
   );
 };
 
-const EnergyTable: React.FC<EnergyTableProps> = ({ items, systemVoltage, highlightedId, onUpdateItem, onDeleteItem, onAddItem, onAIAddItem, onReorder, onSort }) => {
+const EnergyTable: React.FC<EnergyTableProps> = ({ 
+  items, 
+  systemVoltage, 
+  highlightedId, 
+  onUpdateItem, 
+  onDeleteItem, 
+  onAddItem, 
+  onAIAddItem, 
+  onReorder, 
+  onSort,
+  visibleCategories
+}) => {
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [sortState, setSortState] = useState<{ key: string, dir: 'asc' | 'desc' } | null>(null);
-  const categories = Object.values(LoadCategory);
-  const handleSort = (key: string, dir: 'asc' | 'desc') => { setSortState({ key, dir }); onSort(key, dir); };
+  
+  // Use provided categories or default to all
+  const categories = visibleCategories || Object.values(LoadCategory);
+  
+  const handleSort = (key: string, dir: 'asc' | 'desc') => { 
+    setSortState({ key, dir }); 
+    onSort(key, dir); 
+  };
 
   const renderCategoryGroup = (category: LoadCategory) => {
     const categoryItems = items.filter(item => item.category === category);
     return (
       <React.Fragment key={category}>
         <tr className="bg-slate-950/80 border-t-2 border-slate-800">
-          <td colSpan={9} className="px-4 py-3"><span className="app-header-font text-[10px] text-blue-400">{category}</span></td>
+          <td colSpan={9} className="px-4 py-3">
+            <span className="app-header-font text-[10px] text-blue-400">
+              {CATEGORY_DISPLAY_NAMES[category] || category}
+            </span>
+          </td>
         </tr>
         {categoryItems.map(item => {
           const { wh, ah } = calculateItemEnergy(item, systemVoltage);

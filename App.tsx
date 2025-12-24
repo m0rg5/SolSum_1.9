@@ -224,7 +224,7 @@ const App: React.FC = () => {
   }, []);
 
   const handleDeleteSource = useCallback((id: string) => {
-    setCharging(prev => prev.filter(s => s.id !== id));
+    setCharging(prev => prev.filter(item => item.id !== id));
   }, []);
 
   const handleAddSource = useCallback(() => {
@@ -339,20 +339,7 @@ const App: React.FC = () => {
 
       <main className="max-w-[98%] mx-auto w-full p-6 grid grid-cols-1 lg:grid-cols-[1fr_minmax(150px,12%)] gap-8">
         <div className="space-y-12 min-w-0">
-          <section>
-            <h2 className="app-header-font text-sm text-slate-400 mb-6">Daily Consumption (Loads)</h2>
-            <EnergyTable 
-              items={items} 
-              systemVoltage={battery.voltage}
-              highlightedId={highlightedRow?.kind === 'load' ? highlightedRow.id : null}
-              onUpdateItem={handleUpdateItem}
-              onDeleteItem={handleDeleteItem}
-              onAddItem={handleAddItem}
-              onAIAddItem={() => { setChatMode('load'); setChatOpen(true); }}
-              onReorder={handleReorderItem}
-              onSort={handleSortItems}
-            />
-          </section>
+          {/* Section 1: Generation (Power In) */}
           <section>
             <h2 className="app-header-font text-sm text-slate-400 mb-6">Generation (Power In)</h2>
             <ChargingTable 
@@ -367,6 +354,66 @@ const App: React.FC = () => {
               onReorder={handleReorderSource}
               onSort={handleSortSource}
             />
+          </section>
+
+          {/* Section 2: System Mgmt (Standalone Section) */}
+          <section>
+            <h2 className="app-header-font text-sm text-slate-400 mb-6">System Mgmt</h2>
+            <EnergyTable 
+              items={items} 
+              systemVoltage={battery.voltage}
+              highlightedId={highlightedRow?.kind === 'load' ? highlightedRow.id : null}
+              onUpdateItem={handleUpdateItem}
+              onDeleteItem={handleDeleteItem}
+              onAddItem={handleAddItem}
+              onAIAddItem={() => { setChatMode('load'); setChatOpen(true); }}
+              onReorder={handleReorderItem}
+              onSort={handleSortItems}
+              visibleCategories={[LoadCategory.SYSTEM_MGMT]}
+            />
+          </section>
+
+          {/* Section 3: Daily Consumption (Loads) - DC & AC */}
+          <section>
+            <h2 className="app-header-font text-sm text-slate-400 mb-6">Daily Consumption (Loads)</h2>
+            <EnergyTable 
+              items={items} 
+              systemVoltage={battery.voltage}
+              highlightedId={highlightedRow?.kind === 'load' ? highlightedRow.id : null}
+              onUpdateItem={handleUpdateItem}
+              onDeleteItem={handleDeleteItem}
+              onAddItem={handleAddItem}
+              onAIAddItem={() => { setChatMode('load'); setChatOpen(true); }}
+              onReorder={handleReorderItem}
+              onSort={handleSortItems}
+              visibleCategories={[LoadCategory.DC_LOADS, LoadCategory.AC_LOADS]}
+            />
+          </section>
+
+          {/* Section 4: System Configuration - PLACED AT BOTTOM */}
+          <section className="pt-6 border-t border-slate-800/50">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+               <div className="bg-slate-900 p-4 rounded-xl border border-slate-800 ring-1 ring-white/5 shadow-inner">
+                <label className="text-[10px] uppercase text-slate-600 font-black block mb-2 tracking-widest">Location / Postcode</label>
+                <input type="text" value={battery.location || ''} onChange={(e) => handleUpdateBattery('location', e.target.value)} placeholder="Forecast location..." className="bg-transparent border-none w-full text-lg focus:ring-0 text-slate-200 font-bold outline-none" />
+              </div>
+              <div className="bg-slate-900 p-4 rounded-xl border border-slate-800 ring-1 ring-white/5 shadow-inner">
+                <label className="text-[10px] uppercase text-slate-600 font-black block mb-2 tracking-widest">Battery Ah</label>
+                <input type="number" value={battery.capacityAh} onChange={(e) => handleUpdateBattery('capacityAh', Number(e.target.value))} className="bg-transparent border-none w-full text-slate-200 font-mono text-xl focus:ring-0 font-black outline-none" />
+              </div>
+              <div className="bg-slate-900 p-4 rounded-xl border border-slate-800 ring-1 ring-white/5 shadow-inner">
+                <label className="text-[10px] uppercase text-slate-600 font-black block mb-2 tracking-widest">Initial SoC (%)</label>
+                <input type="number" value={battery.initialSoC} onChange={(e) => handleUpdateBattery('initialSoC', Math.min(100, Number(e.target.value)))} className="bg-transparent border-none w-full text-slate-200 font-mono text-xl focus:ring-0 font-black outline-none" />
+              </div>
+              <div className="bg-slate-900 p-4 rounded-xl border border-slate-800 ring-1 ring-white/5 shadow-inner">
+                <label className="text-[10px] uppercase text-slate-600 font-black block mb-2 tracking-widest">System Voltage</label>
+                <div className="flex gap-2 mt-2">
+                  {[12, 24, 48].map((v) => (
+                    <button key={v} onClick={() => handleUpdateBattery('voltage', v)} className={`flex-1 py-1.5 text-xs font-mono font-black rounded-lg transition-all ${battery.voltage === v ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/40' : 'bg-slate-800 text-slate-500 hover:bg-slate-700'}`}>{v}V</button>
+                  ))}
+                </div>
+              </div>
+            </div>
           </section>
         </div>
         <div className="w-full">

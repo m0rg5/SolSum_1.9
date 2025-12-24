@@ -49,6 +49,7 @@
           font-weight: 500;
           text-transform: uppercase;
           letter-spacing: 0.05em;
+          line-height: 1.2;
       }
 
       /* Global override for .font-black to weight 500 as requested */
@@ -59,6 +60,11 @@
       /* ChatBot button ring style fix */
       .ring-slate-900\/80 {
           --tw-ring-color: rgb(15 23 42 / 0.2) !important;
+      }
+
+      /* Specific requested override for inconsistent spacing */
+      .space-y-12 > :not([hidden]) ~ :not([hidden]) {
+          margin-top: calc(2rem * calc(1 - var(--tw-space-y-reverse))) !important;
       }
     </style>
   <script type="importmap">
