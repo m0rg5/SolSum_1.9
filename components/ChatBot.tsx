@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { Chat, GenerateContentResponse, FunctionCall } from "@google/genai";
 import ReactMarkdown from 'react-markdown';
@@ -189,29 +188,95 @@ if (modeProp && modeProp !== mode) {
     const textToSend = overrideInput || input;
     if (!textToSend.trim() || !chatSessionRef.current) return;
 
-    if (pendingToolCall) {
-        const toolResponse = { 
-          functionResponse: { 
-            name: pendingToolCall.name, 
-            id: pendingToolCall.id,
-            response: { result: `Correction: ${textToSend}` } 
-          } 
-        };
-        setPendingToolCall(null);
-        if (!silent) setMessages(prev => [...prev, { role: 'user', text: textToSend, timestamp: new Date() }]);
-        setInput('');
-        setIsTyping(true);
-        try {
-            await chatSessionRef.current.sendMessage({ message: toolResponse });
-            setMessages(prev => [...prev, { role: 'model', text: "Action updated.", timestamp: new Date() }]);
-        } catch (err) { chatSessionRef.current = null; }
-        finally { setIsTyping(false); }
-        return;
+if (pendingToolCall) {
+  const correctionText = textToSend;
+
+  const toolResponse = {
+    functionResponse: {
+      name: pendingToolCall.name,
+      id: pendingToolCall.id,
+      response: { result: `Correction: ${correctionText}` }
     }
+  };
+
+  setPendingToolCall(null);
+  if (!silent) setMessages(prev => [...prev, { role: 'user', text: correctionText, timestamp: new Date() }]);
+  setInput('');
+  setIsTyping(true);
+
+  try {
+    // Step A: close the pending tool-call turn (Gemini requires this turn order). [web:74][web:70]
+    await chatSessionRef.current!.sendMessage({ message: toolResponse });
+
+    // Step B: immediately re-run Spec Asst so it returns a NEW tool call and you get a NEW modal.
+    const resp2 = await chatSessionRef.current!.sendMessage({ message: correctionText });
+    const nextToolCall = (resp2 as any).functionCalls?.[0] ?? null;
+
+    if (nextToolCall) {
+      setPendingToolCall(nextToolCall);
+    } else {
+      setMessages(prev => [...prev, {
+        role: 'model',
+        text: "No updated tool call returned. Add watts/hours in the correction.",
+        isError: true,
+        timestamp: new Date(),
+        category: modeProp
+      }]);
+    }
+  } catch (err) {
+    setMessages(prev => [...prev, {
+      role: 'model',
+      text: "Spec Asst correction failed. Hit Reset and retry.",
+      isError: true,
+      timestamp: new Date(),
+      category: modeProp
+    }]);
+    chatSessionRef.current = null;
+  } finally {
+    setIsTyping(false);
+  }
+
+  return;
+}
 
     if (!silent) setMessages(prev => [...prev, { role: 'user', text: textToSend, timestamp: new Date(), category: 'general' }]);
     setInput('');
     setIsTyping(true);
+
+// --- BEGIN SPEC-ASST SINGLE-SHOT (NO STREAM) ---
+if (modeProp !== 'general') {
+  // (Keep your existing “user message added to UI” lines above this insert.)
+  try {
+    const resp = await chatSessionRef.current!.sendMessage({ message: textToSend });
+    const toolCall = (resp as any).functionCalls?.[0] ?? null;
+
+    if (toolCall) {
+      setPendingToolCall(toolCall);
+    } else {
+      setMessages(prev => [...prev, {
+        role: 'model',
+        text: "No tool call returned. Try a more specific model/spec.",
+        isError: true,
+        timestamp: new Date(),
+        category: modeProp
+      }]);
+    }
+  } catch (e) {
+    setMessages(prev => [...prev, {
+      role: 'model',
+      text: "Spec Asst session error. Reset and retry.",
+      isError: true,
+      timestamp: new Date(),
+      category: modeProp
+    }]);
+    chatSessionRef.current = null;
+  } finally {
+    setIsTyping(false);
+  }
+  return;
+}
+// --- END SPEC-ASST SINGLE-SHOT (NO STREAM) ---
+
 
     try {
         const result = await chatSessionRef.current.sendMessageStream({ message: textToSend });
