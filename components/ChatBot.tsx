@@ -48,7 +48,6 @@ const ChatBot: React.FC<ChatBotProps> = ({
   onAddChargingSource 
 }) => {
   const [isMaximized, setIsMaximized] = useState(false);
-  // Fix: Explicitly type 'mode' state as ChatMode to solve union type incompatibility errors (string vs literal union).
   const [mode, setMode] = useState<ChatMode>('general');
   const [messages, setMessages] = useState<ChatMessage[]>(() => {
     try {
@@ -150,7 +149,6 @@ const ChatBot: React.FC<ChatBotProps> = ({
 
     setPendingToolCall(null);
 
-    // Auto-close chat after short delay so user sees the confirmation
     setTimeout(() => {
       onClose();
     }, 850);
@@ -195,7 +193,6 @@ const ChatBot: React.FC<ChatBotProps> = ({
 
     if (pendingToolCall) {
       const correctionText = textToSend;
-
       const toolResponse = {
         functionResponse: {
           name: pendingToolCall.name,
@@ -203,17 +200,14 @@ const ChatBot: React.FC<ChatBotProps> = ({
           response: { result: `Correction: ${correctionText}` }
         }
       };
-
       setPendingToolCall(null);
       if (!silent) setMessages(prev => [...prev, { role: 'user', text: correctionText, timestamp: new Date() }]);
       setInput('');
       setIsTyping(true);
-
       try {
         await chatSessionRef.current!.sendMessage({ message: toolResponse });
         const resp2 = await chatSessionRef.current!.sendMessage({ message: correctionText });
         const nextToolCall = (resp2 as any).functionCalls?.[0] ?? null;
-
         if (nextToolCall) {
           setPendingToolCall(nextToolCall);
         } else {
@@ -248,7 +242,6 @@ const ChatBot: React.FC<ChatBotProps> = ({
       try {
         const resp = await chatSessionRef.current!.sendMessage({ message: textToSend });
         const toolCall = (resp as any).functionCalls?.[0] ?? null;
-
         if (toolCall) {
           setPendingToolCall(toolCall);
         } else {
@@ -279,18 +272,14 @@ const ChatBot: React.FC<ChatBotProps> = ({
         const result = await chatSessionRef.current.sendMessageStream({ message: textToSend });
         let fullRawText = '';
         let toolCall: FunctionCall | null = null;
-        
         if (!silent) setMessages(prev => [...prev, { role: 'model', text: '', timestamp: new Date(), category: mode }]);
-
         for await (const chunk of result) {
             const c = chunk as GenerateContentResponse;
             if (c.functionCalls?.length) {
-                console.log("DIAGNOSTIC: Function call detected:", c.functionCalls[0]);
                 toolCall = c.functionCalls[0];
                 break;
             }
             if (c.text && !silent) {
-                console.log("DIAGNOSTIC: Text chunk detected:", c.text);
                 fullRawText += c.text;
                 setMessages(prev => {
                     const newMsgs = [...prev];
@@ -307,7 +296,6 @@ const ChatBot: React.FC<ChatBotProps> = ({
             if (!silent) setMessages(prev => prev.filter(m => m.text !== ''));
         }
     } catch (error: any) {
-        console.error("DIAGNOSTIC: Chat submission error:", error);
         if (!silent) setMessages(prev => [...prev, { role: 'model', text: "Session Reset.", isError: true, timestamp: new Date() }]);
         chatSessionRef.current = null;
     } finally { 
@@ -325,11 +313,13 @@ const ChatBot: React.FC<ChatBotProps> = ({
       {!isOpen && (
         <button 
           onClick={onOpen} 
-          className="fixed bottom-8 right-8 w-16 h-16 bg-blue-600 rounded-full shadow-[0_0_30px_rgba(37,99,235,0.4)] transition-all hover:scale-110 active:scale-95 z-50 ring-8 ring-slate-900/80 flex items-center justify-center text-white border border-blue-400/20"
+          className="fixed bottom-8 right-8 w-16 h-16 bg-[rgb(64,33,84)] rounded-full shadow-[0_0_30px_rgba(64,33,84,0.4)] transition-all hover:scale-110 active:scale-95 z-50 ring-8 ring-slate-900/80 flex items-center justify-center text-white p-0 overflow-hidden"
           aria-label="Open Chat"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="w-8 h-8">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M8.625 12a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H8.25m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H12m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 0 1-2.555-.337A5.972 5.972 0 0 1 5.41 20.97a5.969 5.969 0 0 1-.474-.065 4.48 4.48 0 0 0 .978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25Z" />
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" className="w-[80%] h-[65%] fill-current text-white m-auto">
+            <g transform="translate(0, -2)">
+              <path d="M75.1,40h-21l2-29.1a3,3,0,0,0-5.5-1.8L22.3,55a3,3,0,0,0,2.6,4.6H46.3L44.1,89.1a3,3,0,0,0,2.1,3.1h.9a3,3,0,0,0,2.6-1.4l28-46.3A3,3,0,0,0,75.1,40ZM51,77l1.5-20.2a3,3,0,0,0-3-3.2H30.3l19-31L47.9,42.8a3,3,0,0,0,3,3.2H69.8Z"/>
+            </g>
           </svg>
         </button>
       )}
@@ -379,19 +369,16 @@ const ChatBot: React.FC<ChatBotProps> = ({
                 );
             })}
             
-            {/* V2 ACTION REQUIRED MODAL */}
             {pendingToolCall && (
                 <div className="mx-2 mt-4 rounded-xl shadow-[0_0_30px_rgba(168,85,247,0.3)] overflow-hidden border-2 bg-[rgb(48,10,84)] border-purple-500 animate-fade-in-up">
                     <div className="px-4 py-3 bg-[rgb(48,10,84)] border-b border-purple-500 flex items-center gap-3">
                         <span className="text-yellow-400 text-lg">⚡</span>
                         <span className="text-[10px] font-black text-white uppercase tracking-[0.15em]">Action Required</span>
                     </div>
-                    
                     <div className="p-5 space-y-5">
                         <div className="text-sm font-bold text-white uppercase tracking-wider border-b border-white/10 pb-2">
                             {String(pendingToolCall.args?.['name'] || 'Unknown Item')}
                         </div>
-                        
                         <div className="space-y-2">
                             {Object.entries(pendingToolCall.args || {}).map(([k, v]) => k !== 'name' && (
                                 <div key={k} className="flex justify-between items-center text-xs font-mono">
@@ -400,7 +387,6 @@ const ChatBot: React.FC<ChatBotProps> = ({
                                 </div>
                             ))}
                         </div>
-
                         <div className="flex gap-3 pt-2">
                             <button onClick={handleCancelAction} className="flex-1 py-3 text-[10px] font-black uppercase text-slate-400 hover:text-white border border-slate-600 hover:border-slate-400 rounded-lg transition-all tracking-widest">
                                 Cancel
