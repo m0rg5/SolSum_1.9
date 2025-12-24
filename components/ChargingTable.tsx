@@ -4,6 +4,7 @@ import { ChargingSource, BatteryConfig } from '../types';
 interface ChargingTableProps {
   sources: ChargingSource[];
   battery: BatteryConfig;
+  highlightedId: string | null;
   onUpdateSource: (id: string, field: keyof ChargingSource, value: any) => void;
   onDeleteSource: (id: string) => void;
   onAddSource: () => void;
@@ -77,7 +78,7 @@ const SortHeader = ({ label, sortKey, currentSort, onSort, className, widthClass
 };
 
 const ChargingTable: React.FC<ChargingTableProps> = ({ 
-  sources, battery, onUpdateSource, onDeleteSource, onAddSource, onAIAddSource, onUpdateBattery, onReorder, onSort
+  sources, battery, highlightedId, onUpdateSource, onDeleteSource, onAddSource, onAIAddSource, onUpdateBattery, onReorder, onSort
 }) => {
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [sortState, setSortState] = useState<{ key: string, dir: 'asc' | 'desc' } | null>(null);
@@ -112,9 +113,10 @@ const ChargingTable: React.FC<ChargingTableProps> = ({
               const inputVal = Number(source.input) || 0;
               const systemV = Number(battery.voltage) || 24;
               const dailyWh = managementItem ? 0 : (source.unit === 'W' ? (inputVal * effectiveHours * efficiency) : (inputVal * systemV * effectiveHours * efficiency));
+              const isHighlighted = highlightedId === source.id;
                 
               return (
-                <tr key={source.id} className={`hover:bg-slate-800/40 transition-colors group ${draggedId === source.id ? 'opacity-50 bg-slate-800' : ''} ${managementItem ? 'bg-slate-900/40 opacity-60' : ''}`}
+                <tr key={source.id} className={`hover:bg-slate-800/40 transition-all duration-700 group ${draggedId === source.id ? 'opacity-50 bg-slate-800' : ''} ${managementItem ? 'bg-slate-900/40 opacity-60' : ''} ${isHighlighted ? 'bg-purple-900/40 border-purple-500/50 shadow-[inset_0_0_20px_rgba(168,85,247,0.1)] ring-1 ring-purple-500/30' : ''}`}
                   draggable onDragStart={(e) => { setDraggedId(source.id); e.dataTransfer.setData("text/plain", source.id); }}
                   onDragEnd={() => setDraggedId(null)} onDragOver={(e) => e.preventDefault()}
                   onDrop={(e) => { e.preventDefault(); if (draggedId && draggedId !== source.id) onReorder(draggedId, source.id); }}>

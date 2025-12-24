@@ -5,6 +5,7 @@ import { calculateItemEnergy } from '../services/powerLogic';
 interface EnergyTableProps {
   items: PowerItem[];
   systemVoltage: number;
+  highlightedId: string | null;
   onUpdateItem: (id: string, field: keyof PowerItem, value: any) => void;
   onDeleteItem: (id: string) => void;
   onAddItem: (category: LoadCategory) => void;
@@ -79,7 +80,7 @@ const SortHeader = ({ label, sortKey, currentSort, onSort, className, widthClass
   );
 };
 
-const EnergyTable: React.FC<EnergyTableProps> = ({ items, systemVoltage, onUpdateItem, onDeleteItem, onAddItem, onAIAddItem, onReorder, onSort }) => {
+const EnergyTable: React.FC<EnergyTableProps> = ({ items, systemVoltage, highlightedId, onUpdateItem, onDeleteItem, onAddItem, onAIAddItem, onReorder, onSort }) => {
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [sortState, setSortState] = useState<{ key: string, dir: 'asc' | 'desc' } | null>(null);
   const categories = Object.values(LoadCategory);
@@ -96,9 +97,10 @@ const EnergyTable: React.FC<EnergyTableProps> = ({ items, systemVoltage, onUpdat
           const { wh, ah } = calculateItemEnergy(item, systemVoltage);
           const isSuspicious = ah > 100 && (item.dutyCycle === undefined || item.dutyCycle === 100);
           const managementItem = isMgmt(item);
+          const isHighlighted = highlightedId === item.id;
           
           return (
-            <tr key={item.id} className={`border-b border-slate-800 hover:bg-slate-800/40 transition-colors group ${draggedId === item.id ? 'opacity-50 bg-slate-800' : ''} ${managementItem ? 'bg-slate-900/40 opacity-60' : ''}`} draggable
+            <tr key={item.id} className={`border-b border-slate-800 hover:bg-slate-800/40 transition-all duration-700 group ${draggedId === item.id ? 'opacity-50 bg-slate-800' : ''} ${managementItem ? 'bg-slate-900/40 opacity-60' : ''} ${isHighlighted ? 'bg-purple-900/40 border-purple-500/50 shadow-[inset_0_0_20px_rgba(168,85,247,0.1)] ring-1 ring-purple-500/30' : ''}`} draggable
               onDragStart={(e) => { setDraggedId(item.id); e.dataTransfer.setData("text/plain", item.id); }} onDragEnd={() => setDraggedId(null)} onDragOver={(e) => e.preventDefault()}
               onDrop={(e) => { e.preventDefault(); if (draggedId && draggedId !== item.id) onReorder(draggedId, item.id); }}>
               <td className="pl-3 pr-0 py-3 w-8 text-center cursor-move text-slate-700 hover:text-slate-400">⋮⋮</td>

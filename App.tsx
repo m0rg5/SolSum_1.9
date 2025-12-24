@@ -48,6 +48,7 @@ const App: React.FC = () => {
   const [chatOpen, setChatOpen] = useState(false);
   const [chatMode, setChatMode] = useState<ChatMode>('general');
   const [chatContextItem, setChatContextItem] = useState<PowerItem | ChargingSource | null>(null);
+  const [highlightedRow, setHighlightedRow] = useState<{ id: string, kind: 'load' | 'source' } | null>(null);
 
   // Hardened persistence logic
   useEffect(() => {
@@ -155,8 +156,9 @@ const App: React.FC = () => {
   const originalCatNote =
     rawCat && !catLooksCanonical ? ` (Model Cat: ${rawCat})` : '';
 
+  const id = Math.random().toString(36).substr(2, 9);
   const newItem: PowerItem = {
-    id: Math.random().toString(36).substr(2, 9),
+    id,
     ...itemProps,
     category: finalCategory,
     watts: Number(itemProps.watts) || 0,
@@ -166,6 +168,8 @@ const App: React.FC = () => {
   };
 
   setItems(prev => [...prev, newItem]);
+  setHighlightedRow({ id, kind: 'load' });
+  setTimeout(() => setHighlightedRow(null), 2500);
 }, []);
   
   const handleReorderItem = useCallback((fromId: string, toId: string) => {
@@ -238,8 +242,9 @@ const App: React.FC = () => {
   }, []);
 
   const handleAIAddSource = useCallback((sourceProps: Omit<ChargingSource, 'id'>) => {
+    const id = Math.random().toString(36).substr(2, 9);
     const newSource: ChargingSource = {
-        id: Math.random().toString(36).substr(2, 9),
+        id,
         ...sourceProps,
         input: Number(sourceProps.input) || 0,
         efficiency: Number(sourceProps.efficiency) || 0.85,
@@ -247,6 +252,8 @@ const App: React.FC = () => {
         autoSolar: false
     };
     setCharging(prev => [...prev, newSource]);
+    setHighlightedRow({ id, kind: 'source' });
+    setTimeout(() => setHighlightedRow(null), 2500);
   }, []);
 
   const handleReorderSource = useCallback((fromId: string, toId: string) => {
@@ -337,6 +344,7 @@ const App: React.FC = () => {
             <EnergyTable 
               items={items} 
               systemVoltage={battery.voltage}
+              highlightedId={highlightedRow?.kind === 'load' ? highlightedRow.id : null}
               onUpdateItem={handleUpdateItem}
               onDeleteItem={handleDeleteItem}
               onAddItem={handleAddItem}
@@ -350,6 +358,7 @@ const App: React.FC = () => {
             <ChargingTable 
               sources={charging}
               battery={battery}
+              highlightedId={highlightedRow?.kind === 'source' ? highlightedRow.id : null}
               onUpdateSource={handleUpdateSource}
               onDeleteSource={handleDeleteSource}
               onAddSource={handleAddSource}

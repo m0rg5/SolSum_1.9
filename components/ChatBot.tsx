@@ -150,6 +150,12 @@ if (modeProp && modeProp !== mode) {
     }]);
 
     setPendingToolCall(null);
+
+    // Auto-close chat after short delay so user sees the confirmation
+    setTimeout(() => {
+      onClose();
+    }, 850);
+
     try {
       await chatSessionRef.current.sendMessage({
         message: { 
