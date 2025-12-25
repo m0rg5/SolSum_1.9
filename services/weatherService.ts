@@ -29,16 +29,16 @@ export const geocodeLocation = async (location: string): Promise<LatLon | null> 
 };
 
 /**
- * PSH Calculation: shortwave_radiation_sum (MJ/m²) / 3.6 = kWh/m²/day (equivalent to PSH)
+ * PSH Calculation: sunshine_duration (seconds) / 3600 = hours
  */
-const MJ_TO_PSH = 1 / 3.6;
+const SEC_TO_HOURS = 1 / 3600;
 
 export const fetchNowSolarPSH = async (lat: number, lon: number): Promise<number> => {
   try {
-    const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&daily=shortwave_radiation_sum&timezone=auto&forecast_days=1`);
+    const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&daily=sunshine_duration&timezone=auto&forecast_days=1`);
     const data = await res.json();
-    const sum = data.daily?.shortwave_radiation_sum?.[0];
-    return typeof sum === 'number' ? sum * MJ_TO_PSH : 4.0;
+    const sum = data.daily?.sunshine_duration?.[0];
+    return typeof sum === 'number' ? sum * SEC_TO_HOURS : 4.0;
   } catch (e) {
     console.error("Now forecast failed", e);
     return 4.0;
@@ -47,8 +47,6 @@ export const fetchNowSolarPSH = async (lat: number, lon: number): Promise<number
 
 export const fetchMonthAvgSolarPSH = async (lat: number, lon: number, monthIso?: string): Promise<{ sunny: number, cloudy: number }> => {
   try {
-    // For "Month Avg", deterministic climatology is best fetched from archive data of recent years.
-    // We'll sample the same month from the previous year as a representative deterministic baseline.
     const date = monthIso ? new Date(monthIso + "-15") : new Date();
     const year = date.getFullYear() - 1;
     const month = (date.getMonth() + 1).toString().padStart(2, '0');
@@ -56,13 +54,13 @@ export const fetchMonthAvgSolarPSH = async (lat: number, lon: number, monthIso?:
     const startDate = `${year}-${month}-01`;
     const endDate = `${year}-${month}-28`;
 
-    const res = await fetch(`https://archive-api.open-meteo.com/v1/archive?latitude=${lat}&longitude=${lon}&start_date=${startDate}&end_date=${endDate}&daily=shortwave_radiation_sum&timezone=auto`);
+    const res = await fetch(`https://archive-api.open-meteo.com/v1/archive?latitude=${lat}&longitude=${lon}&start_date=${startDate}&end_date=${endDate}&daily=sunshine_duration&timezone=auto`);
     const data = await res.json();
     
-    const radiations = data.daily?.shortwave_radiation_sum as number[];
-    if (!radiations || radiations.length === 0) return { sunny: 4.5, cloudy: 1.5 };
+    const durations = data.daily?.sunshine_duration as number[];
+    if (!durations || durations.length === 0) return { sunny: 4.5, cloudy: 1.5 };
 
-    const pshValues = radiations.map(r => r * MJ_TO_PSH);
+    const pshValues = durations.map(s => s * SEC_TO_HOURS);
     const avg = pshValues.reduce((a, b) => a + b, 0) / pshValues.length;
     const low = Math.min(...pshValues);
 

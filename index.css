@@ -1,88 +1,90 @@
 /* 
    SOL SUM MASTER STYLES 
-   This is the single source of truth for global overrides.
-   Selectors are prefixed with 'body' to increase specificity 
-   and override Tailwind utilities without using !important.
+   Scoped to .app-root to avoid global pollution and fighting Tailwind.
 */
 
 /* --- GLOBAL RESET & BEHAVIOR --- */
-body input::-webkit-outer-spin-button,
-body input::-webkit-inner-spin-button {
+input::-webkit-outer-spin-button,
+input::-webkit-inner-spin-button {
   -webkit-appearance: none;
   margin: 0;
 }
 
-body input[type=number] {
+input[type=number] {
   -moz-appearance: textfield;
 }
 
-/* --- TYPOGRAPHY --- */
-body .app-header-font {
+/* --- APP SCOPED STYLES --- */
+.app-root .app-header-font {
   font-weight: 500;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   line-height: 1.2;
 }
 
-body .font-black {
+.app-root .font-black {
   font-weight: 500;
 }
 
-body .text-5xl {
+.app-root .text-5xl {
   font-size: 2.7rem;
   line-height: 1;
 }
 
-body .text-lg {
+.app-root .text-lg {
   font-size: 1.7rem;
 }
 
-/* --- LAYOUT & SPACING --- */
-
-/* Specific override for the location row dividing line removal requested */
-body .pb-4 {
-    padding-bottom: 0;
+/* Layout Overrides */
+.app-root .pb-4 {
+    padding-bottom: 0 !important; 
 }
 
-body .space-y-12 > :not([hidden]) ~ :not([hidden]) {
-  margin-top: 2rem;
+/* 40% Reduction Layout Tweaks */
+.app-root .compact-section {
+  margin-top: 1.5rem !important;
 }
 
-/* --- CONFIGURATION TOP-BAR --- */
-body .config-label-small {
+.app-root .space-y-8 > :not([hidden]) ~ :not([hidden]) {
+  margin-top: 1.25rem;
+}
+
+/* Configuration Inputs - Dense Mode */
+.app-root .config-label-small {
   font-size: 7px;
   letter-spacing: 0.15em;
+  line-height: 1;
 }
 
-body .config-input-small {
-  font-size: 0.875rem; /* text-sm equivalent */
+.app-root .config-input-small {
+  font-size: 0.8rem;
+  height: 1.1rem;
 }
 
-/* --- CHATBOT UI --- */
-body .ring-slate-900\/80 {
+/* ChatBot Specifics */
+.app-root .ring-slate-900\/80 {
   --tw-ring-color: rgb(15 23 42 / 0.2);
 }
 
-body .no-scrollbar::-webkit-scrollbar {
+.app-root .no-scrollbar::-webkit-scrollbar {
   display: none;
 }
 
-body .no-scrollbar {
+.app-root .no-scrollbar {
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
 
-/* Custom shadow for the Spec Asst modal */
-body .spec-asst-glow {
+.app-root .spec-asst-glow {
     box-shadow: 0 0 30px rgba(168, 85, 247, 0.3);
 }
 
-/* --- ANIMATIONS --- */
+/* Animations */
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: translateY(0); }
 }
 
-body .animate-fade-in {
+.app-root .animate-fade-in {
   animation: fadeIn 0.3s ease-out forwards;
 }

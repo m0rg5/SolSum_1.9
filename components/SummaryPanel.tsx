@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { PowerItem, SystemTotals, BatteryConfig, ChargingSource } from '../types';
 import { calculateAutonomy } from '../services/powerLogic';
@@ -41,32 +40,32 @@ const SummaryPanel: React.FC<SummaryPanelProps> = ({ totals, systemVoltage, item
     }
 
     return (
-      <div className="flex items-start gap-4 w-full group/row py-1">
-        <span className="text-lg grayscale group-hover/row:grayscale-0 transition-all shrink-0 mt-0.5 w-5 h-5 flex items-center justify-center">
+      <div className="flex items-start gap-3 w-full group/row py-0.5">
+        <span className="text-base grayscale group-hover/row:grayscale-0 transition-all shrink-0 mt-0.5 w-4 h-4 flex items-center justify-center">
             {typeof icon === 'string' ? icon : icon}
         </span>
-        <div className="flex flex-col items-start flex-1 border-l border-slate-800/50 pl-3">
-          <div className="flex items-center gap-2">
-            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-tight">{label}</span>
+        <div className="flex flex-col items-start flex-1 border-l border-slate-800/50 pl-2">
+          <div className="flex items-center gap-1.5">
+            <span className="text-[9px] font-bold text-slate-500 uppercase tracking-tight">{label}</span>
           </div>
-          <span className={`font-mono font-black text-[13px] leading-tight mt-0.5 ${textColor}`}>{text === '∞' ? <span className="text-xl">∞</span> : text}</span>
+          <span className={`font-mono font-black text-[12px] leading-tight mt-0.5 ${textColor}`}>{text === '∞' ? <span className="text-lg">∞</span> : text}</span>
         </div>
       </div>
     );
   };
 
   return (
-    <div className="flex flex-col items-center gap-6 w-full text-center py-2 px-1">
+    <div className="flex flex-col items-center gap-4 w-full text-center py-1 px-1">
       {/* Battery SoC Card */}
-      <div className="w-full bg-slate-950 p-4 rounded-2xl border border-slate-800 shadow-2xl flex flex-col items-center relative overflow-hidden group">
+      <div className="w-full bg-slate-950 p-3 rounded-xl border border-slate-800 shadow-2xl flex flex-col items-center relative overflow-hidden group">
         <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-blue-500/20 to-transparent"></div>
-        <h3 className="app-header-font text-[10px] text-slate-600 mb-2 uppercase">24H SOC</h3>
+        <h3 className="app-header-font text-[9px] text-slate-600 mb-1.5 uppercase tracking-wider">24H SOC</h3>
         
-        <div className={`app-header-font text-4xl mb-3 drop-shadow-lg transition-all duration-500 ${socColor}`}>
+        <div className={`app-header-font text-3xl mb-2 drop-shadow-lg transition-all duration-500 ${socColor}`}>
           {totals.finalSoC.toFixed(0)}%
         </div>
 
-        <div className="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden mb-4 border border-slate-700/50 shadow-inner max-w-[120px]">
+        <div className="w-full bg-slate-800 h-1 rounded-full overflow-hidden mb-3 border border-slate-700/50 shadow-inner max-w-[100px]">
           <div 
             className={`h-full transition-all duration-1000 relative ${totals.finalSoC > 50 ? 'bg-emerald-500' : 'bg-amber-500'}`} 
             style={{ width: `${totals.finalSoC}%` }}
@@ -75,26 +74,26 @@ const SummaryPanel: React.FC<SummaryPanelProps> = ({ totals, systemVoltage, item
           </div>
         </div>
 
-        <div className="flex flex-col gap-2 w-full max-w-[100px]">
-          <div className="bg-slate-900 p-1.5 rounded-xl border border-slate-800 shadow-md flex flex-col items-center group/box hover:border-cyan-500/30 transition-colors">
-             <span className="text-[7px] text-slate-600 uppercase font-black mb-0.5 tracking-widest leading-none">Input</span>
-             <span className="font-mono text-cyan-400 font-black text-[10px] tracking-tight">+{totals.dailyAhGenerated.toFixed(0)}Ah</span>
+        <div className="flex flex-col gap-1.5 w-full max-w-[90px]">
+          <div className="bg-slate-900 p-1 rounded-lg border border-slate-800 shadow-md flex flex-col items-center group/box hover:border-cyan-500/30 transition-colors">
+             <span className="text-[6px] text-slate-600 uppercase font-black mb-0.5 tracking-widest leading-none">Input</span>
+             <span className="font-mono text-cyan-400 font-black text-[9px] tracking-tight">+{totals.dailyAhGenerated.toFixed(0)}Ah</span>
           </div>
-          <div className="bg-slate-900 p-1.5 rounded-xl border border-slate-800 shadow-md flex flex-col items-center group/box hover:border-rose-500/30 transition-colors">
-             <span className="text-[7px] text-slate-600 uppercase font-black mb-0.5 tracking-widest leading-none">Output</span>
-             <span className="font-mono text-rose-400 font-black text-[10px] tracking-tight">-{totals.dailyAhConsumed.toFixed(0)}Ah</span>
+          <div className="bg-slate-900 p-1 rounded-lg border border-slate-800 shadow-md flex flex-col items-center group/box hover:border-rose-500/30 transition-colors">
+             <span className="text-[6px] text-slate-600 uppercase font-black mb-0.5 tracking-widest leading-none">Output</span>
+             <span className="font-mono text-rose-400 font-black text-[9px] tracking-tight">-{totals.dailyAhConsumed.toFixed(0)}Ah</span>
           </div>
         </div>
       </div>
 
       {/* Battery Life Card */}
-      <div className="w-full bg-slate-950 p-6 rounded-2xl border border-slate-800 shadow-2xl flex flex-col items-center relative overflow-hidden">
+      <div className="w-full bg-slate-950 p-4 rounded-xl border border-slate-800 shadow-2xl flex flex-col items-center relative overflow-hidden">
         <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-emerald-500/20 to-transparent"></div>
-        <h3 className="app-header-font text-[10px] text-slate-600 mb-6 uppercase">Battery Life</h3>
+        <h3 className="app-header-font text-[9px] text-slate-600 mb-4 uppercase tracking-wider">Battery Life</h3>
         
-        <div className="w-full space-y-4 px-1 max-w-[180px]">
+        <div className="w-full space-y-2.5 px-1 max-w-[160px]">
           {renderAutonomyRow("Realistic", "current", (
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4 text-slate-400">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-3.5 h-3.5 text-slate-400">
                <path d="M18.375 2.25c-1.035 0-1.875.84-1.875 1.875v15.75c0 1.035.84 1.875 1.875 1.875h.75c1.035 0 1.875-.84 1.875-1.875V4.125c0-1.035-.84-1.875-1.875-1.875h-.75ZM9.75 8.625c-1.035 0-1.875.84-1.875 1.875v9.375c0 1.035.84 1.875 1.875 1.875h.75c1.035 0 1.875-.84 1.875-1.875V10.5c0-1.035-.84-1.875-1.875-1.875h-.75ZM3 13.125c0-1.035.84-1.875 1.875-1.875h.75c1.035 0 1.875.84 1.875 1.875v4.875c0 1.035-.84 1.875-1.875 1.875H4.875c-1.035 0-1.875-.84-1.875-1.875v-4.875Z" />
             </svg>
           ))}

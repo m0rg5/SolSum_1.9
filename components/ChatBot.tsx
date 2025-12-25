@@ -19,7 +19,7 @@ interface ChatBotProps {
 const QuickSuggestion: React.FC<{ label: string; onClick: () => any }> = ({ label, onClick }) => (
   <button 
     onClick={onClick}
-    className="whitespace-nowrap px-3 py-1.5 border text-[10px] font-bold uppercase rounded-full transition-all bg-slate-800 hover:bg-slate-700 border-slate-700 text-slate-300 shadow-sm tracking-widest"
+    className="whitespace-nowrap px-2.5 py-1 border text-[9px] font-bold uppercase rounded-full transition-all bg-slate-800 hover:bg-slate-700 border-slate-700 text-slate-300 shadow-sm tracking-widest"
   >
     {label}
   </button>
@@ -84,16 +84,16 @@ const ChatBot: React.FC<ChatBotProps> = ({
   useEffect(() => {
     if (isOpen) {
         if (!chatSessionRef.current || chatSessionModeRef.current !== mode) {
-          chatSessionRef.current = createChatSession(modeProp);
+          chatSessionRef.current = createChatSession(mode);
           chatSessionModeRef.current = mode;
           setPendingToolCall(null);
         }
         if (messages.length === 0) {
             let greetingText = "";
             
-            if (modeProp === 'general') {
+            if (mode === 'general') {
                 greetingText = "### SOL SUM AI\nI'm your off-grid power engineer. Ask me about system audits, cable sizing, battery life projections, or component compatibility.";
-            } else if (modeProp === 'load') {
+            } else if (mode === 'load') {
                 greetingText = "### SPEC ASSISTANT: LOAD ENTRY\nReady to assist with **Spec Entry**. I can extract data from product sheets, model numbers, or raw tech specs. Simply paste the info below and I will prepare the load entry for you.";
             } else {
                 greetingText = "### SPEC ASSISTANT: SOURCE ENTRY\nReady to assist with **Power Generation**. Paste solar panel datasheets or charging hardware specifications to add them to your system list.";
@@ -238,7 +238,7 @@ const ChatBot: React.FC<ChatBotProps> = ({
     setInput('');
     setIsTyping(true);
 
-    if (modeProp !== 'general') {
+    if (mode !== 'general') {
       try {
         const resp = await chatSessionRef.current!.sendMessage({ message: textToSend });
         const toolCall = (resp as any).functionCalls?.[0] ?? null;
@@ -306,17 +306,17 @@ const ChatBot: React.FC<ChatBotProps> = ({
   const isSpecMode = mode !== 'general';
   const containerClasses = isMaximized
     ? `fixed inset-4 z-50 rounded-2xl shadow-2xl flex flex-col overflow-hidden border transition-all duration-300 ring-1 ring-white/10 ${isSpecMode ? 'border-purple-500 bg-purple-950' : 'border-slate-700 bg-slate-900'}`
-    : `fixed bottom-6 right-6 w-[32vw] min-w-[440px] h-[90vh] z-50 rounded-2xl shadow-2xl flex flex-col overflow-hidden border transition-all duration-300 ring-1 ring-white/10 ${isSpecMode ? 'border-2 border-purple-500 bg-purple-950 shadow-purple-500/20' : 'border-slate-700 bg-slate-900'}`;
+    : `fixed bottom-6 right-6 w-[30vw] min-w-[400px] h-[85vh] z-50 rounded-2xl shadow-2xl flex flex-col overflow-hidden border transition-all duration-300 ring-1 ring-white/10 ${isSpecMode ? 'border-2 border-purple-500 bg-purple-950 shadow-purple-500/20' : 'border-slate-700 bg-slate-900'}`;
 
   return (
     <>
       {!isOpen && (
         <button 
           onClick={onOpen} 
-          className="fixed bottom-8 right-8 w-16 h-16 bg-[rgb(64,33,84)] rounded-full shadow-[0_0_30px_rgba(64,33,84,0.4)] transition-all hover:scale-110 active:scale-95 z-50 ring-8 ring-slate-900/80 flex items-center justify-center text-white p-0 overflow-hidden"
+          className="fixed bottom-6 right-6 w-14 h-14 bg-[rgb(64,33,84)] rounded-full shadow-[0_0_20px_rgba(64,33,84,0.4)] transition-all hover:scale-110 active:scale-95 z-50 ring-4 ring-slate-900/80 flex items-center justify-center text-white p-0 overflow-hidden"
           aria-label="Open Chat"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" className="w-[80%] h-[65%] fill-current text-white m-auto">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" className="w-[70%] h-[55%] fill-current text-white m-auto">
             <g transform="translate(0, -2)">
               <path d="M75.1,40h-21l2-29.1a3,3,0,0,0-5.5-1.8L22.3,55a3,3,0,0,0,2.6,4.6H46.3L44.1,89.1a3,3,0,0,0,2.1,3.1h.9a3,3,0,0,0,2.6-1.4l28-46.3A3,3,0,0,0,75.1,40ZM51,77l1.5-20.2a3,3,0,0,0-3-3.2H30.3l19-31L47.9,42.8a3,3,0,0,0,3,3.2H69.8Z"/>
             </g>
@@ -326,41 +326,41 @@ const ChatBot: React.FC<ChatBotProps> = ({
 
       {isOpen && (
         <div className={containerClasses}>
-          <div className={`p-4 flex justify-between items-center border-b shrink-0 relative z-50 ${isSpecMode ? 'bg-purple-950 border-purple-500/30' : 'bg-slate-950 border-slate-800'}`}>
-            <h3 className="app-header-font flex items-center gap-3 text-[10px] text-slate-300">
-              <span className={`w-2.5 h-2.5 rounded-full ${isSpecMode ? 'bg-purple-400 shadow-[0_0_15px_rgba(168,85,247,0.8)] animate-pulse' : 'bg-blue-500'}`}></span>
+          <div className={`p-3 flex justify-between items-center border-b shrink-0 relative z-50 ${isSpecMode ? 'bg-purple-950 border-purple-500/30' : 'bg-slate-950 border-slate-800'}`}>
+            <h3 className="app-header-font flex items-center gap-2.5 text-[9px] text-slate-300 tracking-wider">
+              <span className={`w-2 h-2 rounded-full ${isSpecMode ? 'bg-purple-400 shadow-[0_0_12px_rgba(168,85,247,0.8)] animate-pulse' : 'bg-blue-500'}`}></span>
               {isSpecMode ? 'SPEC ASST.' : 'SOL SUM AI'}
             </h3>
-            <div className="flex items-center gap-2">
-                <button onClick={() => setMessages([])} className="text-[10px] text-slate-600 hover:text-rose-400 font-bold uppercase mr-4 transition-colors tracking-widest">Reset</button>
-                <button onClick={() => setIsMaximized(!isMaximized)} className="p-1.5 hover:bg-white/10 rounded transition-colors text-slate-400"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75h-4.5m4.5 0v4.5m0-4.5L15 9m5.25 11.25h-4.5m4.5 0v-4.5m0 4.5L15 15" /></svg></button>
-                <button onClick={onClose} className="p-1.5 hover:bg-white/10 rounded transition-colors text-slate-400"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" /></svg></button>
+            <div className="flex items-center gap-1.5">
+                <button onClick={() => setMessages([])} className="text-[9px] text-slate-600 hover:text-rose-400 font-bold uppercase mr-3 transition-colors tracking-widest">Reset</button>
+                <button onClick={() => setIsMaximized(!isMaximized)} className="p-1 hover:bg-white/10 rounded transition-colors text-slate-400"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-3.5 h-3.5"><path strokeLinecap="round" strokeLinejoin="round" d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75h-4.5m4.5 0v4.5m0-4.5L15 9m5.25 11.25h-4.5m4.5 0v-4.5m0 4.5L15 15" /></svg></button>
+                <button onClick={onClose} className="p-1 hover:bg-white/10 rounded transition-colors text-slate-400"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" /></svg></button>
             </div>
           </div>
           
-          <div className={`flex-1 overflow-y-auto p-5 space-y-5 pb-40 scrollbar-thin scrollbar-thumb-slate-700 ${isSpecMode ? 'bg-purple-950' : 'bg-slate-900'}`}>
+          <div className={`flex-1 overflow-y-auto p-4 space-y-4 pb-32 scrollbar-thin scrollbar-thumb-slate-700 ${isSpecMode ? 'bg-purple-950' : 'bg-slate-900'}`}>
             {messages.map((msg, i) => {
                 const parsed = msg.role === 'model' ? parseBotMessage(msg.text) : { isJson: false, text: msg.text };
                 return (
                   <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} animate-fade-in`}>
-                     <div className={`max-w-[85%] px-5 py-3.5 shadow-xl rounded-2xl ${msg.role === 'user' ? 'bg-slate-800 text-white rounded-tr-none border border-slate-700' : 'bg-slate-950 border border-slate-800 text-slate-300 rounded-tl-none shadow-black/40'}`}>
+                     <div className={`max-w-[85%] px-4 py-2.5 shadow-xl rounded-xl ${msg.role === 'user' ? 'bg-slate-800 text-white rounded-tr-none border border-slate-700' : 'bg-slate-950 border border-slate-800 text-slate-300 rounded-tl-none shadow-black/40'}`}>
                         {parsed.isJson ? (
-                          <div className="flex flex-col gap-2">
-                            <div className="prose prose-invert prose-sm text-slate-200 leading-relaxed">
+                          <div className="flex flex-col gap-1.5">
+                            <div className="prose prose-invert prose-sm text-slate-200 leading-snug text-[13px]">
                               <ReactMarkdown>{parsed.summary}</ReactMarkdown>
                             </div>
                             <details className="group">
-                              <summary className="cursor-pointer text-[10px] text-blue-400 hover:text-blue-300 font-black uppercase tracking-widest list-none mt-2">
-                                <span className="bg-slate-900 px-3 py-1.5 rounded border border-slate-800 group-open:hidden transition-colors">MORE...</span>
-                                <span className="bg-slate-900 px-3 py-1.5 rounded border border-slate-800 hidden group-open:inline transition-colors">LESS...</span>
+                              <summary className="cursor-pointer text-[9px] text-blue-400 hover:text-blue-300 font-black uppercase tracking-widest list-none mt-1">
+                                <span className="bg-slate-900 px-2 py-1 rounded border border-slate-800 group-open:hidden transition-colors">MORE...</span>
+                                <span className="bg-slate-900 px-2 py-1 rounded border border-slate-800 hidden group-open:inline transition-colors">LESS...</span>
                               </summary>
-                              <div className="mt-4 pt-4 border-t border-slate-800 prose prose-invert prose-sm text-slate-300 animate-in fade-in slide-in-from-top-1">
+                              <div className="mt-3 pt-3 border-t border-slate-800 prose prose-invert prose-sm text-slate-300 animate-in fade-in slide-in-from-top-1 text-[12px]">
                                 <ReactMarkdown>{parsed.expanded}</ReactMarkdown>
                               </div>
                             </details>
                           </div>
                         ) : (
-                          <div className="prose prose-invert prose-sm text-slate-200 leading-relaxed whitespace-pre-wrap">
+                          <div className="prose prose-invert prose-sm text-slate-200 leading-snug whitespace-pre-wrap text-[13px]">
                             <ReactMarkdown>{parsed.text}</ReactMarkdown>
                           </div>
                         )}
@@ -370,28 +370,28 @@ const ChatBot: React.FC<ChatBotProps> = ({
             })}
             
             {pendingToolCall && (
-                <div className="mx-2 mt-4 rounded-xl shadow-[0_0_30px_rgba(168,85,247,0.3)] overflow-hidden border-2 bg-[rgb(48,10,84)] border-purple-500 animate-fade-in-up">
-                    <div className="px-4 py-3 bg-[rgb(48,10,84)] border-b border-purple-500 flex items-center gap-3">
-                        <span className="text-yellow-400 text-lg">⚡</span>
-                        <span className="text-[10px] font-black text-white uppercase tracking-[0.15em]">Action Required</span>
+                <div className="mx-1 mt-3 rounded-lg shadow-[0_0_20px_rgba(168,85,247,0.3)] overflow-hidden border bg-[rgb(48,10,84)] border-purple-500 animate-fade-in-up">
+                    <div className="px-3 py-2 bg-[rgb(48,10,84)] border-b border-purple-500/50 flex items-center gap-2">
+                        <span className="text-yellow-400 text-base">⚡</span>
+                        <span className="text-[9px] font-black text-white uppercase tracking-[0.12em]">Action Required</span>
                     </div>
-                    <div className="p-5 space-y-5">
-                        <div className="text-sm font-bold text-white uppercase tracking-wider border-b border-white/10 pb-2">
+                    <div className="p-4 space-y-4">
+                        <div className="text-[13px] font-bold text-white uppercase tracking-wider border-b border-white/10 pb-1.5">
                             {String(pendingToolCall.args?.['name'] || 'Unknown Item')}
                         </div>
-                        <div className="space-y-2">
+                        <div className="space-y-1.5">
                             {Object.entries(pendingToolCall.args || {}).map(([k, v]) => k !== 'name' && (
-                                <div key={k} className="flex justify-between items-center text-xs font-mono">
+                                <div key={k} className="flex justify-between items-center text-[11px] font-mono">
                                     <span className="text-slate-400 capitalize">{k}:</span>
                                     <span className="text-purple-300 font-bold">{String(v)}</span>
                                 </div>
                             ))}
                         </div>
-                        <div className="flex gap-3 pt-2">
-                            <button onClick={handleCancelAction} className="flex-1 py-3 text-[10px] font-black uppercase text-slate-400 hover:text-white border border-slate-600 hover:border-slate-400 rounded-lg transition-all tracking-widest">
+                        <div className="flex gap-2.5 pt-1.5">
+                            <button onClick={handleCancelAction} className="flex-1 py-2 text-[9px] font-black uppercase text-slate-400 hover:text-white border border-slate-600 hover:border-slate-400 rounded transition-all tracking-widest">
                                 Cancel
                             </button>
-                            <button onClick={handleConfirmAction} className="flex-1 py-3 text-[10px] font-black uppercase bg-purple-600 hover:bg-purple-500 text-white rounded-lg shadow-lg shadow-purple-900/50 transition-all active:scale-95 tracking-widest">
+                            <button onClick={handleConfirmAction} className="flex-1 py-2 text-[9px] font-black uppercase bg-purple-600 hover:bg-purple-500 text-white rounded shadow-lg shadow-purple-900/50 transition-all active:scale-95 tracking-widest">
                                 Confirm Add
                             </button>
                         </div>
@@ -399,27 +399,26 @@ const ChatBot: React.FC<ChatBotProps> = ({
                 </div>
             )}
             
-            {isTyping && <div className="flex gap-1.5 p-2 px-4 bg-slate-800 w-fit rounded-full"><div className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-bounce"></div><div className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-bounce delay-75"></div><div className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-bounce delay-150"></div></div>}
+            {isTyping && <div className="flex gap-1 p-1.5 px-3 bg-slate-800 w-fit rounded-full"><div className="w-1 h-1 bg-blue-500 rounded-full animate-bounce"></div><div className="w-1 h-1 bg-blue-500 rounded-full animate-bounce delay-75"></div><div className="w-1 h-1 bg-blue-500 rounded-full animate-bounce delay-150"></div></div>}
             <div ref={messagesEndRef} />
           </div>
 
-          <div className="bg-slate-950 border-t border-slate-800 p-4 relative z-40 shadow-[0_-20px_50px_rgba(0,0,0,0.5)]">
-                <div className="absolute bottom-full left-0 right-0 p-4 flex gap-2 overflow-x-auto bg-gradient-to-t from-slate-950 to-transparent no-scrollbar pointer-events-auto">
+          <div className="bg-slate-950 border-t border-slate-800 p-3 relative z-40 shadow-[0_-15px_40px_rgba(0,0,0,0.5)]">
+                <div className="absolute bottom-full left-0 right-0 p-3 flex gap-1.5 overflow-x-auto bg-gradient-to-t from-slate-950 to-transparent no-scrollbar pointer-events-auto">
                     <QuickSuggestion label="System Audit" onClick={() => handleSubmit(null, "Run System Audit")} />
                     <QuickSuggestion label="Cable Sizing" onClick={() => handleSubmit(null, "What cable sizes for 24V?")} />
                     <QuickSuggestion label="System Status?" onClick={() => handleSubmit(null, "Current system status?")} />
-                    <QuickSuggestion label="Load Count?" onClick={() => handleSubmit(null, "How many loads?")} />
                     {showMoreSuggestions && dynamicQs.map(q => <QuickSuggestion key={q} label={q} onClick={() => handleSubmit(null, q)} />)}
-                    <button onClick={handleMoreQs} className="px-3 py-1.5 bg-blue-600/10 text-blue-500 rounded-full text-[9px] font-black uppercase border border-blue-600/20 hover:bg-blue-600/20 transition-all tracking-widest">
+                    <button onClick={handleMoreQs} className="px-2.5 py-1 bg-blue-600/10 text-blue-500 rounded-full text-[8px] font-black uppercase border border-blue-600/20 hover:bg-blue-600/20 transition-all tracking-widest">
                       {showMoreSuggestions ? "LESS..." : "MORE..."}
                     </button>
                 </div>
 
-                <form onSubmit={(e) => handleSubmit(e)} className="flex gap-3">
-                  <input type="text" value={input} onChange={(e) => setInput(e.target.value)} placeholder="Type model name or question..."
-                    className="flex-1 bg-slate-900 border border-slate-800 rounded-2xl px-5 py-3.5 text-sm text-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 transition-all shadow-inner outline-none font-medium" />
-                  <button type="submit" disabled={!input.trim() || isTyping} className="p-4 bg-blue-600 hover:bg-blue-500 rounded-2xl text-white disabled:opacity-50 shadow-xl active:scale-90 transition-all">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M6 12 3.269 3.126A59.768 59.768 0 0 1 21.485 12 59.77 59.77 0 0 1 3.27 20.876L5.999 12Zm0 0h7.5" /></svg>
+                <form onSubmit={(e) => handleSubmit(e)} className="flex gap-2.5">
+                  <input type="text" value={input} onChange={(e) => setInput(e.target.value)} placeholder="Type model name..."
+                    className="flex-1 bg-slate-900 border border-slate-800 rounded-xl px-4 py-2.5 text-[13px] text-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 transition-all shadow-inner outline-none font-medium" />
+                  <button type="submit" disabled={!input.trim() || isTyping} className="p-3 bg-blue-600 hover:bg-blue-500 rounded-xl text-white disabled:opacity-50 shadow-xl active:scale-90 transition-all">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M6 12 3.269 3.126A59.768 59.768 0 0 1 21.485 12 59.77 59.77 0 0 1 3.27 20.876L5.999 12Zm0 0h7.5" /></svg>
                   </button>
                 </form>
           </div>

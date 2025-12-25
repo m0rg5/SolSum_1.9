@@ -14,6 +14,7 @@ export const getInverterEfficiency = (watts: number): number => {
 /**
  * Single Source of Truth for Solar Hours.
  * Priortizes deterministic forecast when AUTO is enabled.
+ * CLAMPED: Lowered threshold to 0.1h to allow for winter/cloudy days.
  */
 export const getEffectiveSolarHours = (source: ChargingSource, battery: BatteryConfig): number => {
   const manualHours = Number(source.hours) || 0;
@@ -24,11 +25,19 @@ export const getEffectiveSolarHours = (source: ChargingSource, battery: BatteryC
   const { forecast, forecastMode } = battery;
   if (forecast.loading) return manualHours > 0 ? manualHours : 4.0;
 
+  let calculated = 4.0;
   if (forecastMode === 'now') {
-    return typeof forecast.nowHours === 'number' ? forecast.nowHours : (manualHours || 4.0);
+    calculated = typeof forecast.nowHours === 'number' ? forecast.nowHours : (manualHours || 4.0);
   } else {
-    return typeof forecast.sunnyHours === 'number' ? forecast.sunnyHours : (manualHours || 4.5);
+    calculated = typeof forecast.sunnyHours === 'number' ? forecast.sunnyHours : (manualHours || 4.5);
   }
+
+  // Sanity Clamp: 0.1h to 14h. Low enough for bad weather, high enough for earth.
+  if (calculated < 0.1 || calculated > 14.0) {
+    return manualHours > 0 ? manualHours : 4.0;
+  }
+
+  return calculated;
 };
 
 export const calculateItemEnergy = (item: PowerItem, systemVoltage: number) => {
@@ -138,7 +147,6 @@ export const calculateAutonomy = (
 
   const netWhPerDay = dailyWhGenerated - dailyWhConsumed;
 
-  // STRICT INVARIANT: If net is positive, battery never empties.
   if (netWhPerDay >= 0) {
     return { days: Infinity, hours: Infinity, netWh: netWhPerDay };
   }
