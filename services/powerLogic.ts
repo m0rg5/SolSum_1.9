@@ -1,3 +1,4 @@
+
 import { PowerItem, LoadCategory, ChargingSource, BatteryConfig, SystemTotals } from '../types';
 
 export const getInverterEfficiency = (watts: number): number => {
@@ -23,9 +24,12 @@ export const normalizeAutoSolarHours = (battery: BatteryConfig) => {
     ? battery.forecast.nowHours 
     : battery.forecast.sunnyHours;
 
+  // Fix: Removed comparison to empty string as 'raw' is typed as number | undefined.
+  // We check for undefined or null to treat as "nodata".
   if (raw === undefined || raw === null) return { status: 'nodata', value: 4.0 };
   
   const val = Number(raw);
+  // NaN (from non-numeric strings) or invalid ranges are "invalid"
   if (isNaN(val) || val < 0 || val > 15) return { status: 'invalid', value: 4.0 };
   
   return { status: 'ok', value: val };
@@ -43,10 +47,10 @@ export const getEffectiveSolarHours = (source: ChargingSource, battery: BatteryC
 
   const { status, value } = normalizeAutoSolarHours(battery);
   
-  // If we have valid data, use it.
+  // If we have valid data (including explicit 0.0), use it.
   if (status === 'ok') return value;
   
-  // Fallback to manual input if present, otherwise default to 4.0
+  // Fallback: If loading or no-data, use the manual input if it's > 0, otherwise standard 4.0h.
   return manualHours > 0 ? manualHours : 4.0;
 };
 
