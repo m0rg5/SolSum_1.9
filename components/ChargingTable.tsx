@@ -26,19 +26,21 @@ const NumberInput = ({
   onChange, 
   className,
   step = "any",
-  disabled = false
+  disabled = false,
+  placeholder = "0"
 }: { 
   value: number, 
   onChange: (val: number) => void, 
   className?: string,
   step?: string,
-  disabled?: boolean
+  disabled?: boolean,
+  placeholder?: string
 }) => {
-  const [localStr, setLocalStr] = useState(value?.toString() || '0');
+  const [localStr, setLocalStr] = useState(value?.toString() || '');
   useEffect(() => {
     const v = Number(value) || 0;
     const parsed = parseFloat(localStr);
-    if (Math.abs(parsed - v) > 0.0001 || isNaN(parsed)) setLocalStr(value?.toString() || '0');
+    if (Math.abs(parsed - v) > 0.0001 || isNaN(parsed)) setLocalStr(value?.toString() || '');
   }, [value]);
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
@@ -52,6 +54,7 @@ const NumberInput = ({
     <input 
       type="number" 
       step={step} 
+      placeholder={placeholder}
       className={`bg-transparent text-right text-white focus:outline-none w-full pr-1 font-medium placeholder-slate-600 ${className} ${disabled ? 'opacity-30' : ''}`} 
       value={localStr} 
       onChange={handleChange} 
@@ -92,6 +95,7 @@ const ChargingTable: React.FC<ChargingTableProps> = ({
           <tr>
             <th className="w-8"></th>
             <SortHeader label="Charging Source" sortKey="name" currentSort={sortState} onSort={handleSort} widthClass="min-w-[200px]" />
+            <th className="px-2 py-4 text-center whitespace-nowrap w-[60px]">@</th>
             <SortHeader label="Input" sortKey="input" currentSort={sortState} onSort={handleSort} className="text-right" widthClass="w-[140px]" />
             <th className="px-4 py-4 text-center whitespace-nowrap w-[80px]">☀️ Auto</th>
             <SortHeader label="Hrs/Day" sortKey="hours" currentSort={sortState} onSort={handleSort} className="text-right" widthClass="w-[110px]" />
@@ -107,7 +111,8 @@ const ChargingTable: React.FC<ChargingTableProps> = ({
             const efficiency = Number(source.efficiency) || 0.85;
             const inputVal = Number(source.input) || 0;
             const systemV = Number(battery.voltage) || 24;
-            const dailyWh = managementItem ? 0 : (source.unit === 'W' ? (inputVal * effectiveHours * efficiency) : (inputVal * systemV * effectiveHours * efficiency));
+            const qty = Number(source.quantity) || 1;
+            const dailyWh = managementItem ? 0 : (source.unit === 'W' ? (inputVal * effectiveHours * efficiency * qty) : (inputVal * systemV * effectiveHours * efficiency * qty));
             const isHighlighted = highlightedId === source.id;
               
             return (
@@ -122,9 +127,13 @@ const ChargingTable: React.FC<ChargingTableProps> = ({
                     className={`bg-transparent border-b border-transparent hover:border-slate-600 focus:border-blue-500 w-full text-slate-200 transition-colors text-sm font-medium outline-none ${managementItem ? 'italic' : ''}`}/>
                 </td>
                 <td className="px-2 py-3 text-right">
+                  <div className="inline-flex items-center justify-center w-[40px] bg-slate-850 border border-slate-700 rounded-md px-1 py-1.5 focus-within:border-blue-500 transition-colors">
+                    <NumberInput value={source.quantity || 1} onChange={(val) => onUpdateSource(source.id, 'quantity', Math.max(1, val))} placeholder="1" className="text-center pr-0" />
+                  </div>
+                </td>
+                <td className="px-2 py-3 text-right">
                   {!managementItem ? (
                     <div className="inline-flex items-center justify-end w-[100px] bg-slate-850 border border-slate-700 rounded-md px-2 py-1.5 focus-within:border-blue-500 transition-colors">
-                      {/* FIX: Ensure source.id is passed as the first argument, not the source object */}
                       <NumberInput value={source.input} onChange={(val) => onUpdateSource(source.id, 'input', val)} />
                       <select 
                         value={source.unit} 
@@ -182,7 +191,7 @@ const ChargingTable: React.FC<ChargingTableProps> = ({
             );
           })}
           <tr>
-            <td colSpan={8} className="px-4 py-2">
+            <td colSpan={9} className="px-4 py-2">
               <div className="flex gap-2">
                 <button onClick={onAddSource} className="w-[15%] flex-none flex items-center justify-center gap-2 py-3 border border-dashed border-slate-700 rounded-lg hover:bg-slate-800 text-slate-500 text-lg font-medium transition-all">+</button>
                 <button onClick={onAIAddSource} className="flex-1 flex items-center justify-center gap-2 py-3 border border-dashed border-blue-900/50 bg-blue-950/20 rounded-lg hover:bg-blue-900/40 text-blue-400/80 text-[12px] font-black uppercase tracking-widest transition-all">✨ Spec Asst.</button>

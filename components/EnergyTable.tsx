@@ -31,21 +31,23 @@ const NumberInput = ({
   onChange, 
   className,
   step = "any",
-  disabled = false
+  disabled = false,
+  placeholder = "0"
 }: { 
   value: number, 
   onChange: (val: number) => void, 
   className?: string,
   step?: string,
-  disabled?: boolean
+  disabled?: boolean,
+  placeholder?: string
 }) => {
-  const [localStr, setLocalStr] = useState(value?.toString() || '0');
+  const [localStr, setLocalStr] = useState(value?.toString() || '');
 
   useEffect(() => {
     const v = Number(value) || 0;
     const parsed = parseFloat(localStr);
     if (Math.abs(parsed - v) > 0.0001 || isNaN(parsed)) {
-       setLocalStr(value?.toString() || '0');
+       setLocalStr(value?.toString() || '');
     }
   }, [value]);
 
@@ -62,6 +64,7 @@ const NumberInput = ({
       type="number" 
       step={step}
       disabled={disabled}
+      placeholder={placeholder}
       className={`bg-transparent text-right text-white focus:outline-none w-full pr-1 font-medium placeholder-slate-600 ${className} ${disabled ? 'opacity-30' : ''}`}
       value={localStr} 
       onChange={handleChange}
@@ -112,10 +115,12 @@ const EnergyTable: React.FC<EnergyTableProps> = ({
 
   const renderCategoryGroup = (category: LoadCategory) => {
     const categoryItems = items.filter(item => item.category === category);
+    const showQtyInput = category !== LoadCategory.AC_LOADS;
+
     return (
       <React.Fragment key={category}>
         <tr className="bg-slate-950/80 border-t-2 border-slate-800">
-          <td colSpan={9} className="px-4 py-3">
+          <td colSpan={10} className="px-4 py-3">
             <span className="app-header-font text-[10px] text-blue-400 uppercase">
               {CATEGORY_DISPLAY_NAMES[category] || category}
             </span>
@@ -135,6 +140,15 @@ const EnergyTable: React.FC<EnergyTableProps> = ({
               <td className="px-4 py-3 whitespace-nowrap min-w-[200px]">
                 <input type="text" value={item.name} onChange={(e) => onUpdateItem(item.id, 'name', e.target.value)} onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
                   className={`bg-transparent border-b border-transparent hover:border-slate-600 focus:border-blue-500 w-full text-slate-200 transition-colors text-sm font-medium outline-none ${managementItem ? 'italic' : ''}`}/>
+              </td>
+              <td className="px-2 py-3 text-right">
+                {showQtyInput ? (
+                  <div className="inline-flex items-center justify-center w-[40px] bg-slate-850 border border-slate-700 rounded-md px-1 py-1.5 focus-within:border-blue-500 transition-colors">
+                    <NumberInput value={item.quantity || 1} onChange={(val) => onUpdateItem(item.id, 'quantity', Math.max(1, val))} placeholder="1" className="text-center pr-0" />
+                  </div>
+                ) : (
+                  <div className="w-[40px] h-8 flex items-center justify-center opacity-20 text-slate-600 font-mono text-[10px]">-</div>
+                )}
               </td>
               <td className="px-2 py-3 text-right">
                 <div className={`inline-flex items-center justify-end w-[88px] bg-slate-850 border border-slate-700 rounded-md px-2 py-1.5 focus-within:border-blue-500 transition-colors ${managementItem ? 'border-dashed' : ''}`}>
@@ -173,7 +187,7 @@ const EnergyTable: React.FC<EnergyTableProps> = ({
           );
         })}
         <tr>
-          <td colSpan={9} className="px-4 py-2"><div className="flex gap-2">
+          <td colSpan={10} className="px-4 py-2"><div className="flex gap-2">
             <button onClick={() => onAddItem(category)} className="w-[15%] flex-none flex items-center justify-center gap-2 py-3 border border-dashed border-slate-700 rounded-lg hover:bg-slate-800 text-slate-500 text-lg font-medium transition-all">+</button>
             <button onClick={() => onAIAddItem(category)} className="flex-1 flex items-center justify-center gap-2 py-3 border border-dashed border-blue-900/50 bg-blue-950/20 rounded-lg hover:bg-blue-900/40 text-blue-400/80 text-[12px] font-black uppercase tracking-widest transition-all">✨ Spec Asst.</button>
           </div></td>
@@ -189,6 +203,7 @@ const EnergyTable: React.FC<EnergyTableProps> = ({
           <tr>
             <th className="w-8"></th>
             <SortHeader label="Item" sortKey="name" currentSort={sortState} onSort={handleSort} widthClass="min-w-[200px]" />
+            <th className="px-2 py-4 text-center whitespace-nowrap w-[60px]">@</th>
             <SortHeader label="POWER (W)" sortKey="watts" currentSort={sortState} onSort={handleSort} className="text-right" widthClass="w-[120px]" />
             <SortHeader label="HRS/DAY" sortKey="hours" currentSort={sortState} onSort={handleSort} className="text-right" widthClass="w-[110px]" />
             <th className="px-4 py-4 text-right whitespace-nowrap w-[110px]">DUTY %</th>

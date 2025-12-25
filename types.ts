@@ -8,6 +8,7 @@ export interface PowerItem {
   id: string;
   category: LoadCategory;
   name: string;
+  quantity: number;
   watts: number;
   hours: number;
   dutyCycle: number; // Percentage (0-100)
@@ -18,6 +19,7 @@ export interface PowerItem {
 export interface ChargingSource {
   id: string;
   name: string;
+  quantity: number;
   input: number;
   unit: 'W' | 'A';
   hours: number;

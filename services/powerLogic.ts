@@ -36,15 +36,16 @@ export const calculateItemEnergy = (item: PowerItem, systemVoltage: number) => {
   const hours = Number(item.hours) || 0;
   const v = Number(systemVoltage) || 24;
   const dutyMultiplier = (Number(item.dutyCycle) || 100) / 100;
+  const qty = Number(item.quantity) || 1;
 
   if (item.category === LoadCategory.AC_LOADS) {
     const efficiency = getInverterEfficiency(watts);
     const totalWatts = watts / (efficiency || 0.85);
-    const wh = totalWatts * hours * dutyMultiplier;
+    const wh = totalWatts * hours * dutyMultiplier * qty;
     return { wh: wh || 0, ah: (wh / v) || 0, efficiency };
   }
 
-  const wh = watts * hours * dutyMultiplier;
+  const wh = watts * hours * dutyMultiplier * qty;
   return { wh: wh || 0, ah: (wh / v) || 0, efficiency: 1 };
 };
 
@@ -69,11 +70,12 @@ export const calculateSystemTotals = (
 
     const input = Number(source.input) || 0;
     const efficiency = Number(source.efficiency) || 0.85;
+    const qty = Number(source.quantity) || 1;
 
     if (source.unit === 'W') {
-      dailyWhGenerated += (input * hours * efficiency);
+      dailyWhGenerated += (input * hours * efficiency * qty);
     } else {
-      dailyWhGenerated += (input * systemVoltage * hours * efficiency);
+      dailyWhGenerated += (input * systemVoltage * hours * efficiency * qty);
     }
   });
 
@@ -126,9 +128,10 @@ export const calculateAutonomy = (
       }
       const input = Number(source.input) || 0;
       const efficiency = Number(source.efficiency) || 0.85;
+      const qty = Number(source.quantity) || 1;
       const val = source.unit === 'W'
-        ? (input * h * efficiency)
-        : (input * systemV * h * efficiency);
+        ? (input * h * efficiency * qty)
+        : (input * systemV * h * efficiency * qty);
       dailyWhGenerated += val;
     });
   }

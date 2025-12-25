@@ -12,8 +12,9 @@ const LOAD_TOOLS = [{
       type: Type.OBJECT,
       properties: {
         name: { type: Type.STRING, description: 'Model/Name of the device' },
+        quantity: { type: Type.NUMBER, description: 'Number of these items. Default 1' },
         category: { type: Type.STRING, description: 'Category: "AC Loads (Inverter)", "DC Loads (Native/DCDC)", or "System Mgmt"' },
-        watts: { type: Type.NUMBER, description: 'Power consumption in Watts' },
+        watts: { type: Type.NUMBER, description: 'Power consumption in Watts PER UNIT' },
         hours: { type: Type.NUMBER, description: 'Estimated hours used per day' },
         dutyCycle: { type: Type.NUMBER, description: 'Duty cycle percentage (1-100)' },
         notes: { type: Type.STRING, description: 'Brief technical spec note' }
@@ -31,7 +32,8 @@ const SOURCE_TOOLS = [{
       type: Type.OBJECT,
       properties: {
         name: { type: Type.STRING, description: 'Model/Name of the panel or source' },
-        input: { type: Type.NUMBER, description: 'Input value (Watts or Amps)' },
+        quantity: { type: Type.NUMBER, description: 'Number of panels or sources. Default 1' },
+        input: { type: Type.NUMBER, description: 'Input value (Watts or Amps) PER UNIT' },
         unit: { type: Type.STRING, enum: ['W', 'A'] },
         hours: { type: Type.NUMBER, description: 'Generation hours per day' },
         efficiency: { type: Type.NUMBER, description: 'Efficiency decimal (0.1 to 1.0). For Solar, default to 0.85 (system derating).' },
@@ -55,7 +57,8 @@ export const createChatSession = (mode: ChatMode): Chat => {
         4. If a user asks for an inverter itself, suggest placing it in "System Mgmt" as a standby load.
         5. For solar panels, assume an efficiency (derating) of 0.85. NEVER use 0.20 as that is panel conversion efficiency, which is already reflected in the rated Watts.
         6. Even if some data is missing, make a technical estimate and put assumptions in 'notes'.
-        7. NEVER respond with text or JSON. ONLY call tools.`,
+        7. If the user mentions multiple items (e.g., "2 solar panels"), set 'quantity' accordingly.
+        8. NEVER respond with text or JSON. ONLY call tools.`,
         tools: mode === 'load' ? LOAD_TOOLS : SOURCE_TOOLS,
         toolConfig: {
           functionCallingConfig: {

@@ -115,6 +115,7 @@ const App: React.FC = () => {
       id: Math.random().toString(36).substr(2, 9),
       category,
       name: 'New Item',
+      quantity: 1,
       watts: 0,
       hours: 1,
       dutyCycle: 100,
@@ -124,14 +125,14 @@ const App: React.FC = () => {
 
   const handleAIAddLoad = useCallback((itemProps: Omit<PowerItem, 'id'>) => {
     const id = Math.random().toString(36).substr(2, 9);
-    setItems(prev => [...prev, { id, ...itemProps, category: itemProps.category as LoadCategory }]);
+    setItems(prev => [...prev, { id, quantity: 1, ...itemProps, category: itemProps.category as LoadCategory }]);
     setHighlightedRow({ id, kind: 'load' });
     setTimeout(() => setHighlightedRow(null), 2500);
   }, []);
 
   const handleAIAddSource = useCallback((sourceProps: Omit<ChargingSource, 'id'>) => {
     const id = Math.random().toString(36).substr(2, 9);
-    setCharging(prev => [...prev, { id, ...sourceProps }]);
+    setCharging(prev => [...prev, { id, quantity: 1, ...sourceProps }]);
     setHighlightedRow({ id, kind: 'source' });
     setTimeout(() => setHighlightedRow(null), 2500);
   }, []);
@@ -292,7 +293,7 @@ const App: React.FC = () => {
               highlightedId={highlightedRow?.kind === 'source' ? highlightedRow.id : null}
               onUpdateSource={handleUpdateSource}
               onDeleteSource={(id) => setCharging(p => p.filter(s => s.id !== id))}
-              onAddSource={() => setCharging(p => [...p, { id: Math.random().toString(36).substr(2, 9), name: 'New Source', input: 0, unit: 'W', efficiency: 0.9, type: 'solar', hours: 5, autoSolar: false }])}
+              onAddSource={() => setCharging(p => [...p, { id: Math.random().toString(36).substr(2, 9), name: 'New Source', quantity: 1, input: 0, unit: 'W', efficiency: 0.9, type: 'solar', hours: 5, autoSolar: false }])}
               onAIAddSource={() => { setChatMode('source'); setChatOpen(true); }}
               onUpdateBattery={handleUpdateBattery}
               onReorder={() => {}} onSort={() => {}}
@@ -318,7 +319,7 @@ const App: React.FC = () => {
               highlightedId={highlightedRow?.kind === 'load' ? highlightedRow.id : null}
               onUpdateItem={handleUpdateItem} onDeleteItem={handleDeleteItem}
               onAddItem={handleAddItem} onAIAddItem={() => { setChatMode('load'); setChatOpen(true); }}
-              visibleCategories={[LoadCategory.DC_LOADS, LoadCategory.AC_LOADS]}
+              visibleCategories={[LoadCategory.AC_LOADS, LoadCategory.DC_LOADS]}
               onReorder={() => {}} onSort={() => {}}
             />
           </section>
