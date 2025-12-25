@@ -12,32 +12,42 @@ export const getInverterEfficiency = (watts: number): number => {
 };
 
 /**
+ * Normalizes solar forecast data.
+ * Returns status and value. 0.0 is considered a valid "ok" result.
+ */
+export const normalizeAutoSolarHours = (battery: BatteryConfig) => {
+  if (!battery.forecast) return { status: 'nodata', value: 4.0 };
+  if (battery.forecast.loading) return { status: 'loading', value: 4.0 };
+
+  const raw = battery.forecastMode === 'now' 
+    ? battery.forecast.nowHours 
+    : battery.forecast.sunnyHours;
+
+  if (raw === undefined || raw === null) return { status: 'nodata', value: 4.0 };
+  
+  const val = Number(raw);
+  if (isNaN(val) || val < 0 || val > 15) return { status: 'invalid', value: 4.0 };
+  
+  return { status: 'ok', value: val };
+};
+
+/**
  * Single Source of Truth for Solar Hours.
  * Priortizes deterministic forecast when AUTO is enabled.
- * CLAMPED: Lowered threshold to 0.1h to allow for winter/cloudy days.
  */
 export const getEffectiveSolarHours = (source: ChargingSource, battery: BatteryConfig): number => {
   const manualHours = Number(source.hours) || 0;
-  if (!source.autoSolar || source.type !== 'solar' || !battery.forecast) {
+  if (!source.autoSolar || source.type !== 'solar') {
     return manualHours;
   }
 
-  const { forecast, forecastMode } = battery;
-  if (forecast.loading) return manualHours > 0 ? manualHours : 4.0;
-
-  let calculated = 4.0;
-  if (forecastMode === 'now') {
-    calculated = typeof forecast.nowHours === 'number' ? forecast.nowHours : (manualHours || 4.0);
-  } else {
-    calculated = typeof forecast.sunnyHours === 'number' ? forecast.sunnyHours : (manualHours || 4.5);
-  }
-
-  // Sanity Clamp: 0.1h to 14h. Low enough for bad weather, high enough for earth.
-  if (calculated < 0.1 || calculated > 14.0) {
-    return manualHours > 0 ? manualHours : 4.0;
-  }
-
-  return calculated;
+  const { status, value } = normalizeAutoSolarHours(battery);
+  
+  // If we have valid data, use it.
+  if (status === 'ok') return value;
+  
+  // Fallback to manual input if present, otherwise default to 4.0
+  return manualHours > 0 ? manualHours : 4.0;
 };
 
 export const calculateItemEnergy = (item: PowerItem, systemVoltage: number) => {

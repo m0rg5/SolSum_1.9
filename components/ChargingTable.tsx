@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { ChargingSource, BatteryConfig } from '../types';
-import { getEffectiveSolarHours } from '../services/powerLogic';
+import { getEffectiveSolarHours, normalizeAutoSolarHours } from '../services/powerLogic';
 
 interface ChargingTableProps {
   sources: ChargingSource[];
@@ -138,12 +138,9 @@ const ChargingTable: React.FC<ChargingTableProps> = ({
             const dailyWh = managementItem ? 0 : (source.unit === 'W' ? (inputVal * effectiveHours * efficiency * qty) : (inputVal * systemV * effectiveHours * efficiency * qty));
             const isHighlighted = highlightedId === source.id;
             
-            let isAutoErr = false;
-            if (source.autoSolar && battery.forecast && !battery.forecast.loading) {
-              const forecastVal = battery.forecastMode === 'now' ? battery.forecast.nowHours : battery.forecast.sunnyHours;
-              // Updated threshold to 0.1h
-              if (forecastVal !== undefined && (forecastVal < 0.1 || forecastVal > 14.0)) isAutoErr = true;
-            }
+            // Unified "AUTO ERR" logic using shared normalization result
+            const norm = normalizeAutoSolarHours(battery);
+            const isAutoErr = source.autoSolar && (norm.status === 'invalid' || norm.status === 'nodata');
               
             return (
               <tr key={source.id} className={`hover:bg-slate-800/40 transition-all duration-700 group ${draggedId === source.id ? 'opacity-50 bg-slate-800' : ''} ${managementItem ? 'bg-slate-900/40 opacity-60' : ''} ${isHighlighted ? 'bg-purple-900/40 border-purple-500/50 shadow-[inset_0_0_20px_rgba(168,85,247,0.1)] ring-1 ring-purple-500/30' : ''}`}
