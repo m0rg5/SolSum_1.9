@@ -1,3 +1,4 @@
+
 import { LoadCategory, PowerItem, ChargingSource, BatteryConfig } from './types';
 
 export const SYSTEM_VOLTAGE = 24;
@@ -42,4 +43,5 @@ export const INITIAL_BATTERY: BatteryConfig = {
   voltage: 24,
   initialSoC: 100,
   location: '2048',
+  forecastMode: 'now',
 };

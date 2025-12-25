@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { PowerItem, SystemTotals, BatteryConfig, ChargingSource } from '../types';
 import { calculateAutonomy } from '../services/powerLogic';
@@ -14,7 +15,13 @@ const SummaryPanel: React.FC<SummaryPanelProps> = ({ totals, systemVoltage, item
   const socColor = totals.finalSoC > 50 ? 'text-emerald-400' : totals.finalSoC > 20 ? 'text-amber-400' : 'text-red-400';
 
   const renderAutonomyRow = (label: string, scenario: 'current' | 'peak' | 'cloud' | 'zero', icon: React.ReactNode) => {
-    const forecast = battery.forecast ? { sunny: battery.forecast.sunnyHours, cloudy: battery.forecast.cloudyHours } : undefined;
+    // Projections use forecast PSH if available (mapped to specific scenarios)
+    const forecast = battery.forecast ? { 
+      sunny: battery.forecast.sunnyHours, 
+      cloudy: battery.forecast.cloudyHours,
+      now: battery.forecast.nowHours
+    } : undefined;
+
     const { days, hours } = calculateAutonomy(items, charging, battery, scenario, forecast);
     
     let text = "";
@@ -39,8 +46,10 @@ const SummaryPanel: React.FC<SummaryPanelProps> = ({ totals, systemVoltage, item
             {typeof icon === 'string' ? icon : icon}
         </span>
         <div className="flex flex-col items-start flex-1 border-l border-slate-800/50 pl-3">
-          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-tight">{label}</span>
-          <span className={`font-mono font-black text-[13px] leading-tight mt-0.5 ${textColor}`}>{text}</span>
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-tight">{label}</span>
+          </div>
+          <span className={`font-mono font-black text-[13px] leading-tight mt-0.5 ${textColor}`}>{text === '∞' ? <span className="text-xl">∞</span> : text}</span>
         </div>
       </div>
     );
@@ -51,7 +60,7 @@ const SummaryPanel: React.FC<SummaryPanelProps> = ({ totals, systemVoltage, item
       {/* Battery SoC Card */}
       <div className="w-full bg-slate-950 p-4 rounded-2xl border border-slate-800 shadow-2xl flex flex-col items-center relative overflow-hidden group">
         <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-blue-500/20 to-transparent"></div>
-        <h3 className="app-header-font text-[10px] text-slate-600 mb-2">24H SOC</h3>
+        <h3 className="app-header-font text-[10px] text-slate-600 mb-2 uppercase">24H SOC</h3>
         
         <div className={`app-header-font text-4xl mb-3 drop-shadow-lg transition-all duration-500 ${socColor}`}>
           {totals.finalSoC.toFixed(0)}%
@@ -81,7 +90,7 @@ const SummaryPanel: React.FC<SummaryPanelProps> = ({ totals, systemVoltage, item
       {/* Battery Life Card */}
       <div className="w-full bg-slate-950 p-6 rounded-2xl border border-slate-800 shadow-2xl flex flex-col items-center relative overflow-hidden">
         <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-emerald-500/20 to-transparent"></div>
-        <h3 className="app-header-font text-[10px] text-slate-600 mb-6">Battery Life</h3>
+        <h3 className="app-header-font text-[10px] text-slate-600 mb-6 uppercase">Battery Life</h3>
         
         <div className="w-full space-y-4 px-1 max-w-[180px]">
           {renderAutonomyRow("Realistic", "current", (

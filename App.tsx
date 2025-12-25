@@ -1,33 +1,31 @@
-import React, { useState, useMemo, useCallback, useEffect } from 'react';
+import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { INITIAL_DATA, INITIAL_CHARGING, INITIAL_BATTERY } from './constants';
-import { PowerItem, ChargingSource, BatteryConfig, LoadCategory, ChatMode } from './types';
-import { calculateSystemTotals, calculateItemEnergy } from './services/powerLogic';
-import { getSolarForecast } from './services/geminiService';
+import { PowerItem, ChargingSource, BatteryConfig, LoadCategory, ChatMode, AppStateExport } from './types';
+import { calculateSystemTotals } from './services/powerLogic';
+import { geocodeLocation, fetchNowSolarPSH, fetchMonthAvgSolarPSH } from './services/weatherService';
 import EnergyTable from './components/EnergyTable';
 import ChargingTable from './components/ChargingTable';
 import SummaryPanel from './components/SummaryPanel';
 import ChatBot from './components/ChatBot';
 import HeaderGraph from './components/HeaderGraph';
 
+const STORAGE_SCHEMA_VERSION = "2.1";
+
 const App: React.FC = () => {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const [items, setItems] = useState<PowerItem[]>(() => {
     try {
       const saved = localStorage.getItem('solsum_items');
       return saved ? JSON.parse(saved) : INITIAL_DATA;
-    } catch (e) {
-      console.error("Failed to load items", e);
-      return INITIAL_DATA;
-    }
+    } catch (e) { return INITIAL_DATA; }
   });
 
   const [charging, setCharging] = useState<ChargingSource[]>(() => {
     try {
       const saved = localStorage.getItem('solsum_charging');
       return saved ? JSON.parse(saved) : INITIAL_CHARGING;
-    } catch (e) {
-      console.error("Failed to load charging sources", e);
-      return INITIAL_CHARGING;
-    }
+    } catch (e) { return INITIAL_CHARGING; }
   });
 
   const [battery, setBattery] = useState<BatteryConfig>(() => {
@@ -36,61 +34,73 @@ const App: React.FC = () => {
       if (saved) {
         const parsed = JSON.parse(saved);
         if (parsed.forecast) parsed.forecast.loading = false;
+        if (!parsed.forecastMode) parsed.forecastMode = 'now';
+        if (!parsed.forecastMonth) {
+          const now = new Date();
+          parsed.forecastMonth = `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}`;
+        }
         return parsed;
       }
-      return INITIAL_BATTERY;
-    } catch (e) {
-      console.error("Failed to load battery config", e);
-      return INITIAL_BATTERY;
-    }
+      return { 
+        ...INITIAL_BATTERY, 
+        forecastMode: 'now',
+        forecastMonth: `${new Date().getFullYear()}-${(new Date().getMonth() + 1).toString().padStart(2, '0')}`
+      };
+    } catch (e) { return { ...INITIAL_BATTERY, forecastMode: 'now' }; }
   });
   
   const [chatOpen, setChatOpen] = useState(false);
   const [chatMode, setChatMode] = useState<ChatMode>('general');
-  const [chatContextItem, setChatContextItem] = useState<PowerItem | ChargingSource | null>(null);
   const [highlightedRow, setHighlightedRow] = useState<{ id: string, kind: 'load' | 'source' } | null>(null);
 
-  // Hardened persistence logic
   useEffect(() => {
     localStorage.setItem('solsum_items', JSON.stringify(items));
     localStorage.setItem('solsum_charging', JSON.stringify(charging));
-    
-    const batteryToSave = { ...battery };
-    if (batteryToSave.forecast) {
-      batteryToSave.forecast = { ...batteryToSave.forecast, loading: false };
-    }
-    localStorage.setItem('solsum_battery', JSON.stringify(batteryToSave));
+    localStorage.setItem('solsum_battery', JSON.stringify(battery));
+    localStorage.setItem('solsum_version', STORAGE_SCHEMA_VERSION);
   }, [items, charging, battery]);
 
   const totals = useMemo(() => calculateSystemTotals(items, charging, battery), [items, charging, battery]);
 
   useEffect(() => {
     const updateForecast = async () => {
-      if (!battery.location || battery.location.length < 3) {
-        setBattery(prev => ({ ...prev, forecast: undefined }));
-        return;
-      }
+      if (!battery.location || battery.location.length < 1) return;
       setBattery(prev => ({ 
         ...prev, 
-        forecast: prev.forecast ? { ...prev.forecast, loading: true } : { sunnyHours: 0, cloudyHours: 0, loading: true } 
+        forecast: { ...(prev.forecast || {}), loading: true, error: undefined } 
       }));
-      const forecast = await getSolarForecast(battery.location);
-      if (forecast) {
+      try {
+        const geo = await geocodeLocation(battery.location);
+        if (!geo) throw new Error("Location not found");
+        let forecastData: any = {};
+        if (battery.forecastMode === 'now') {
+          const nowPSH = await fetchNowSolarPSH(geo.lat, geo.lon);
+          forecastData = { nowHours: nowPSH };
+        } else {
+          const monthPSH = await fetchMonthAvgSolarPSH(geo.lat, geo.lon, battery.forecastMonth);
+          forecastData = { sunnyHours: monthPSH.sunny, cloudyHours: monthPSH.cloudy };
+        }
         setBattery(prev => ({ 
           ...prev, 
           forecast: { 
-            sunnyHours: forecast.sunnyHours, 
-            cloudyHours: forecast.cloudyHours, 
-            loading: false 
+            ...(prev.forecast || {}),
+            ...forecastData,
+            lat: geo.lat,
+            lon: geo.lon,
+            loading: false,
+            updatedAt: new Date().toISOString()
           } 
         }));
-      } else {
-        setBattery(prev => ({ ...prev, forecast: undefined }));
+      } catch (e: any) {
+        setBattery(prev => ({ 
+          ...prev, 
+          forecast: { ...(prev.forecast || {}), loading: false, error: e.message } 
+        }));
       }
     };
-    const timer = setTimeout(updateForecast, 1500);
+    const timer = setTimeout(updateForecast, 1000);
     return () => clearTimeout(timer);
-  }, [battery.location]);
+  }, [battery.location, battery.forecastMode, battery.forecastMonth]);
 
   const handleUpdateItem = useCallback((id: string, field: keyof PowerItem, value: any) => {
     setItems(prev => prev.map(item => item.id === id ? { ...item, [field]: value } : item));
@@ -101,319 +111,216 @@ const App: React.FC = () => {
   }, []);
 
   const handleAddItem = useCallback((category: LoadCategory) => {
-    const newItem: PowerItem = {
+    setItems(prev => [...prev, {
       id: Math.random().toString(36).substr(2, 9),
-      category: category,
+      category,
       name: 'New Item',
       watts: 0,
       hours: 1,
       dutyCycle: 100,
       notes: ''
-    };
-    setItems(prev => [...prev, newItem]);
+    }]);
   }, []);
 
- const handleAIAddLoad = useCallback((itemProps: Omit<PowerItem, 'id'>) => {
-  const rawCat = String(itemProps.category ?? '').trim();
-  const rawName = String(itemProps.name ?? '').trim();
-  const signal = `${rawCat} ${rawName}`.toLowerCase();
-
-  let finalCategory = LoadCategory.DC_LOADS;
-
-  // System Management (avoid matching generic "system")
-  if (
-    signal.includes('system management') ||
-    signal.includes('system mgmt') ||
-    signal.includes('mgmt') ||
-    signal.includes('overhead') ||
-    signal.includes('standby') ||
-    signal.includes('idle') ||
-    signal.includes('parasitic') ||
-    signal.includes('vampire')
-  ) {
-    finalCategory = LoadCategory.SYSTEM_MGMT;
-  }
-  // AC Loads (Inverter)
-  else if (
-    signal.includes('ac load') ||
-    signal.includes('ac') ||
-    signal.includes('inverter') ||
-    signal.includes('microwave') ||
-    signal.includes('oven') ||
-    signal.includes('induction') ||
-    signal.includes('cooktop') ||
-    signal.includes('kettle') ||
-    signal.includes('toaster')
-  ) {
-    finalCategory = LoadCategory.AC_LOADS;
-  }
-
-  const catLooksCanonical =
-    rawCat === 'DC Loads (Native/DCDC)' ||
-    rawCat === 'AC Loads (Inverter)' ||
-    rawCat === 'System Mgmt';
-
-  const originalCatNote =
-    rawCat && !catLooksCanonical ? ` (Model Cat: ${rawCat})` : '';
-
-  const id = Math.random().toString(36).substr(2, 9);
-  const newItem: PowerItem = {
-    id,
-    ...itemProps,
-    category: finalCategory,
-    watts: Number(itemProps.watts) || 0,
-    hours: Number(itemProps.hours) || 0,
-    dutyCycle: Number(itemProps.dutyCycle) || 100,
-    notes: `${String(itemProps.notes ?? '')}${originalCatNote}`.trim()
-  };
-
-  setItems(prev => [...prev, newItem]);
-  setHighlightedRow({ id, kind: 'load' });
-  setTimeout(() => setHighlightedRow(null), 2500);
-}, []);
-  
-  const handleReorderItem = useCallback((fromId: string, toId: string) => {
-    setItems(prev => {
-      const fromIndex = prev.findIndex(i => i.id === fromId);
-      const toIndex = prev.findIndex(i => i.id === toId);
-      if (fromIndex === -1 || toIndex === -1 || fromIndex === toIndex) return prev;
-      if (prev[fromIndex].category !== prev[toIndex].category) return prev;
-      const newItems = [...prev];
-      const [moved] = newItems.splice(fromIndex, 1);
-      newItems.splice(toIndex, 0, moved);
-      return newItems;
-    });
+  const handleAIAddLoad = useCallback((itemProps: Omit<PowerItem, 'id'>) => {
+    const id = Math.random().toString(36).substr(2, 9);
+    setItems(prev => [...prev, { id, ...itemProps, category: itemProps.category as LoadCategory }]);
+    setHighlightedRow({ id, kind: 'load' });
+    setTimeout(() => setHighlightedRow(null), 2500);
   }, []);
 
-  const handleSortItems = useCallback((key: string, direction: 'asc' | 'desc') => {
-    setItems(prev => {
-      const groups = prev.reduce((acc, item) => {
-        if (!acc[item.category]) acc[item.category] = [];
-        acc[item.category].push(item);
-        return acc;
-      }, {} as Record<string, PowerItem[]>);
-      const sortedGroups: PowerItem[] = [];
-      Object.values(LoadCategory).forEach(cat => {
-         const group = groups[cat] || [];
-         group.sort((a, b) => {
-           let valA: number | string = 0;
-           let valB: number | string = 0;
-           if (key === 'wh' || key === 'ah') {
-              valA = calculateItemEnergy(a, battery.voltage).wh;
-              valB = calculateItemEnergy(b, battery.voltage).wh;
-           } else {
-              // @ts-ignore
-              valA = a[key];
-              // @ts-ignore
-              valB = b[key];
-           }
-           if (typeof valA === 'string' && typeof valB === 'string') {
-             return direction === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
-           }
-           // @ts-ignore
-           return direction === 'asc' ? valA - valB : valB - valA;
-         });
-         sortedGroups.push(...group);
-      });
-      return sortedGroups;
-    });
-  }, [battery.voltage]);
+  const handleAIAddSource = useCallback((sourceProps: Omit<ChargingSource, 'id'>) => {
+    const id = Math.random().toString(36).substr(2, 9);
+    setCharging(prev => [...prev, { id, ...sourceProps }]);
+    setHighlightedRow({ id, kind: 'source' });
+    setTimeout(() => setHighlightedRow(null), 2500);
+  }, []);
 
   const handleUpdateSource = useCallback((id: string, field: keyof ChargingSource, value: any) => {
     setCharging(prev => prev.map(s => s.id === id ? { ...s, [field]: value } : s));
   }, []);
 
-  const handleDeleteSource = useCallback((id: string) => {
-    setCharging(prev => prev.filter(item => item.id !== id));
-  }, []);
-
-  const handleAddSource = useCallback(() => {
-    const newSource: ChargingSource = {
-        id: Math.random().toString(36).substr(2, 9),
-        name: 'New Source',
-        input: 0,
-        unit: 'W',
-        efficiency: 0.9,
-        type: 'solar',
-        hours: 5,
-        autoSolar: false
-    };
-    setCharging(prev => [...prev, newSource]);
-  }, []);
-
-  const handleAIAddSource = useCallback((sourceProps: Omit<ChargingSource, 'id'>) => {
-    const id = Math.random().toString(36).substr(2, 9);
-    const newSource: ChargingSource = {
-        id,
-        ...sourceProps,
-        input: Number(sourceProps.input) || 0,
-        efficiency: Number(sourceProps.efficiency) || 0.85,
-        hours: Number(sourceProps.hours) || 0,
-        autoSolar: false
-    };
-    setCharging(prev => [...prev, newSource]);
-    setHighlightedRow({ id, kind: 'source' });
-    setTimeout(() => setHighlightedRow(null), 2500);
-  }, []);
-
-  const handleReorderSource = useCallback((fromId: string, toId: string) => {
-    setCharging(prev => {
-      const fromIndex = prev.findIndex(s => s.id === fromId);
-      const toIndex = prev.findIndex(s => s.id === toId);
-      if (fromIndex === -1 || toIndex === -1 || fromIndex === toIndex) return prev;
-      const newSources = [...prev];
-      const [moved] = newSources.splice(fromIndex, 1);
-      newSources.splice(toIndex, 0, moved);
-      return newSources;
-    });
-  }, []);
-
-  const handleSortSource = useCallback((key: string, direction: 'asc' | 'desc') => {
-    setCharging(prev => {
-       const sorted = [...prev];
-       sorted.sort((a, b) => {
-         let valA: number | string = 0;
-         let valB: number | string = 0;
-         if (key === 'dailyWh') {
-           const getWh = (s: ChargingSource) => {
-             let h = Number(s.hours) || 0;
-             if (s.autoSolar && s.type === 'solar' && battery.forecast && !battery.forecast.loading) {
-               h = Number(battery.forecast.sunnyHours) || 0;
-             }
-             const inputVal = Number(s.input) || 0;
-             const effVal = Number(s.efficiency) || 0.85;
-             return s.unit === 'W' ? (inputVal * h * effVal) : (inputVal * Number(battery.voltage) * h * effVal);
-           };
-           valA = getWh(a);
-           valB = getWh(b);
-         } else {
-           // @ts-ignore
-           valA = a[key];
-           // @ts-ignore
-           valB = b[key];
-         }
-         if (typeof valA === 'string' && typeof valB === 'string') {
-            return direction === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
-         }
-         // @ts-ignore
-         return direction === 'asc' ? valA - valB : valB - valA;
-       });
-       return sorted;
-    });
-  }, [battery.voltage, battery.forecast]);
-
   const handleUpdateBattery = useCallback((field: keyof BatteryConfig, value: any) => {
     setBattery(prev => ({ ...prev, [field]: value }));
   }, []);
+
+  const handleExport = () => {
+    const data: AppStateExport = { version: STORAGE_SCHEMA_VERSION, items, charging, battery };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `solsum_v${STORAGE_SCHEMA_VERSION}_${new Date().toISOString().split('T')[0]}.json`;
+    a.click();
+  };
+
+  const handleTriggerImport = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const data = JSON.parse(event.target?.result as string);
+        if (data.items) setItems(data.items);
+        if (data.charging) setCharging(data.charging);
+        if (data.battery) setBattery(data.battery);
+        alert(`Config v${data.version || '?' } imported.`);
+      } catch (err) { alert("Import failed."); }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  };
+
+  const formatMonthShort = (isoMonth: string) => {
+    if (!isoMonth) return '';
+    const [year, month] = isoMonth.split('-');
+    const date = new Date(parseInt(year), parseInt(month) - 1);
+    const monthStr = date.toLocaleString('default', { month: 'short' });
+    const shortYear = year.slice(-2);
+    return `${monthStr} ${shortYear}`;
+  };
 
   const netKwh = totals.netWh / 1000;
   
   return (
     <div className="min-h-screen bg-slate-900 text-slate-100 flex flex-col font-sans">
-      <header className="bg-slate-950 border-b border-slate-800 sticky top-0 z-40 shadow-2xl shadow-black/40 pb-6 pt-4">
+      <header className="bg-slate-950 border-b border-slate-800 sticky top-0 z-40 shadow-2xl pb-6 pt-4">
         <div className="max-w-[98%] mx-auto flex flex-col lg:flex-row items-center justify-between px-6 gap-6">
-          <div className="flex items-center gap-4 shrink-0 w-full lg:w-auto justify-between lg:justify-start">
-             <div className="flex items-center gap-4">
-               {/* Restored emoji ☀️ with 50px font size as requested */}
-               <div className="text-[50px] drop-shadow-xl leading-none">☀️</div>
-               <div>
-                  <h1 className="app-header-font text-[2rem] text-white">Sol Sum</h1>
-                  <p className="text-slate-500 text-[10px] font-semibold uppercase tracking-[0.1em] mt-0.5">Solar Calc & Planner</p>
-               </div>
+          <div className="flex items-center gap-4 shrink-0">
+             <div className="text-[50px] leading-none">☀️</div>
+             <div>
+                <h1 className="app-header-font text-[2rem] text-white">Sol Sum</h1>
+                <p className="text-slate-500 text-[10px] font-semibold uppercase tracking-[0.1em] mt-0.5">Solar Calc & Planner</p>
              </div>
           </div>
-          <div className="hidden md:block flex-1 w-full max-w-2xl px-4 lg:px-8">
+          <div className="hidden md:block flex-1 max-w-2xl px-8">
             <HeaderGraph items={items} systemVoltage={battery.voltage} />
           </div>
-          <div className="text-right shrink-0 min-w-[200px]">
-             {/* Styled to match SOL SUM header font and increased to 5xl per request */}
+          <div className="text-right">
              <div className={`app-header-font text-5xl flex items-baseline justify-end gap-1.5 ${netKwh >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
                <span>{netKwh >= 0 ? '+' : ''}{netKwh.toFixed(1)}</span>
                <span className="text-xs text-slate-600 font-black uppercase tracking-tighter">kWh</span>
              </div>
-             {/* Updated label to 'DAILY POWER IN' */}
-             <div className="text-[10px] text-slate-700 font-black uppercase tracking-[0.2em] mt-1">Daily Power In</div>
+             <div className="text-[10px] text-slate-700 font-black uppercase tracking-[0.2em] mt-1">24HR POWER</div>
           </div>
         </div>
       </header>
 
       <main className="max-w-[98%] mx-auto w-full p-6 grid grid-cols-1 lg:grid-cols-[1fr_minmax(150px,12%)] gap-8">
-        <div className="space-y-12 min-w-0">
-          {/* Section 1: Generation (Power In) */}
-          <section>
-            <h2 className="app-header-font text-sm text-slate-400 mb-6">Generation (Power In)</h2>
-            <ChargingTable 
-              sources={charging}
-              battery={battery}
-              highlightedId={highlightedRow?.kind === 'source' ? highlightedRow.id : null}
-              onUpdateSource={handleUpdateSource}
-              onDeleteSource={handleDeleteSource}
-              onAddSource={handleAddSource}
-              onAIAddSource={() => { setChatMode('source'); setChatOpen(true); }}
-              onUpdateBattery={handleUpdateBattery}
-              onReorder={handleReorderSource}
-              onSort={handleSortSource}
-            />
-          </section>
-
-          {/* Section 2: System Mgmt (Standalone Section) */}
-          <section>
-            <h2 className="app-header-font text-sm text-slate-400 mb-6">System Mgmt</h2>
-            <EnergyTable 
-              items={items} 
-              systemVoltage={battery.voltage}
-              highlightedId={highlightedRow?.kind === 'load' ? highlightedRow.id : null}
-              onUpdateItem={handleUpdateItem}
-              onDeleteItem={handleDeleteItem}
-              onAddItem={handleAddItem}
-              onAIAddItem={() => { setChatMode('load'); setChatOpen(true); }}
-              onReorder={handleReorderItem}
-              onSort={handleSortItems}
-              visibleCategories={[LoadCategory.SYSTEM_MGMT]}
-            />
-          </section>
-
-          {/* Section 3: Daily Consumption (Loads) - DC & AC */}
-          <section>
-            <h2 className="app-header-font text-sm text-slate-400 mb-6">Daily Consumption (Loads)</h2>
-            <EnergyTable 
-              items={items} 
-              systemVoltage={battery.voltage}
-              highlightedId={highlightedRow?.kind === 'load' ? highlightedRow.id : null}
-              onUpdateItem={handleUpdateItem}
-              onDeleteItem={handleDeleteItem}
-              onAddItem={handleAddItem}
-              onAIAddItem={() => { setChatMode('load'); setChatOpen(true); }}
-              onReorder={handleReorderItem}
-              onSort={handleSortItems}
-              visibleCategories={[LoadCategory.DC_LOADS, LoadCategory.AC_LOADS]}
-            />
-          </section>
-
-          {/* Section 4: System Configuration - PLACED AT BOTTOM */}
-          <section className="pt-6 border-t border-slate-800/50">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-               <div className="bg-slate-900 p-4 rounded-xl border border-slate-800 ring-1 ring-white/5 shadow-inner">
-                <label className="text-[10px] uppercase text-slate-600 font-black block mb-2 tracking-widest">Location / Postcode</label>
-                <input type="text" value={battery.location || ''} onChange={(e) => handleUpdateBattery('location', e.target.value)} placeholder="Forecast location..." className="bg-transparent border-none w-full text-lg focus:ring-0 text-slate-200 font-bold outline-none" />
+        <div className="space-y-8 min-w-0">
+          <section className="pb-4">
+            <div className="flex flex-wrap md:flex-nowrap gap-3 items-stretch">
+              {/* Location */}
+              <div className="flex-1 min-w-[120px] bg-slate-900 p-[10px] rounded-xl border border-slate-800 ring-1 ring-white/5 shadow-inner flex flex-col justify-center">
+                <label className="config-label-small uppercase text-slate-600 font-black block mb-1 tracking-widest">LOCATION / POSTCODE</label>
+                <input type="text" value={battery.location || ''} onChange={(e) => handleUpdateBattery('location', e.target.value)} placeholder="e.g. 2048" className="bg-transparent border-none w-full text-slate-200 font-mono config-input-small focus:ring-0 font-black outline-none p-0" />
               </div>
-              <div className="bg-slate-900 p-4 rounded-xl border border-slate-800 ring-1 ring-white/5 shadow-inner">
-                <label className="text-[10px] uppercase text-slate-600 font-black block mb-2 tracking-widest">Battery Ah</label>
-                <input type="number" value={battery.capacityAh} onChange={(e) => handleUpdateBattery('capacityAh', Number(e.target.value))} className="bg-transparent border-none w-full text-slate-200 font-mono text-xl focus:ring-0 font-black outline-none" />
-              </div>
-              <div className="bg-slate-900 p-4 rounded-xl border border-slate-800 ring-1 ring-white/5 shadow-inner">
-                <label className="text-[10px] uppercase text-slate-600 font-black block mb-2 tracking-widest">Initial SoC (%)</label>
-                <input type="number" value={battery.initialSoC} onChange={(e) => handleUpdateBattery('initialSoC', Math.min(100, Number(e.target.value)))} className="bg-transparent border-none w-full text-slate-200 font-mono text-xl focus:ring-0 font-black outline-none" />
-              </div>
-              <div className="bg-slate-900 p-4 rounded-xl border border-slate-800 ring-1 ring-white/5 shadow-inner">
-                <label className="text-[10px] uppercase text-slate-600 font-black block mb-2 tracking-widest">System Voltage</label>
-                <div className="flex gap-2 mt-2">
-                  {[12, 24, 48].map((v) => (
-                    <button key={v} onClick={() => handleUpdateBattery('voltage', v)} className={`flex-1 py-1.5 text-xs font-mono font-black rounded-lg transition-all ${battery.voltage === v ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/40' : 'bg-slate-800 text-slate-500 hover:bg-slate-700'}`}>{v}V</button>
-                  ))}
+
+              {/* Month */}
+              <div className="flex-1 min-w-[120px] bg-slate-900 p-[10px] rounded-xl border border-slate-800 ring-1 ring-white/5 shadow-inner relative flex flex-col justify-center">
+                <div className="flex justify-between items-center mb-1">
+                  <label className="config-label-small uppercase text-slate-600 font-black tracking-widest">MTH</label>
+                  <label className="flex items-center gap-1 cursor-pointer group">
+                    <span className="text-[6px] font-black text-slate-600 uppercase group-hover:text-blue-400 transition-colors">Now</span>
+                    <input 
+                      type="checkbox" 
+                      checked={battery.forecastMode === 'now'} 
+                      onChange={(e) => handleUpdateBattery('forecastMode', e.target.checked ? 'now' : 'monthAvg')}
+                      className="w-2.5 h-2.5 rounded bg-slate-800 border-slate-700 text-blue-600"
+                    />
+                  </label>
+                </div>
+                <div className="relative group/mth flex items-center h-5">
+                  <input 
+                    type="month" 
+                    disabled={battery.forecastMode === 'now'}
+                    value={battery.forecastMonth || ''} 
+                    onChange={(e) => handleUpdateBattery('forecastMonth', e.target.value)} 
+                    className="absolute inset-0 opacity-0 cursor-pointer z-10 disabled:cursor-not-allowed w-full" 
+                  />
+                  <div className={`text-slate-200 font-mono config-input-small font-black ${battery.forecastMode === 'now' ? 'opacity-30' : ''}`}>
+                    {battery.forecastMode === 'now' ? formatMonthShort(new Date().toISOString().slice(0, 7)) : formatMonthShort(battery.forecastMonth || '')}
+                  </div>
                 </div>
               </div>
+
+              {/* Battery Ah */}
+              <div className="flex-1 min-w-[120px] bg-slate-900 p-[10px] rounded-xl border border-slate-800 ring-1 ring-white/5 shadow-inner flex flex-col justify-center">
+                <label className="config-label-small uppercase text-slate-600 font-black block mb-1 tracking-widest">BATTERY AH</label>
+                <input type="number" value={battery.capacityAh} onChange={(e) => handleUpdateBattery('capacityAh', Number(e.target.value))} className="bg-transparent border-none w-full text-slate-200 font-mono config-input-small focus:ring-0 font-black outline-none p-0" />
+              </div>
+
+              {/* SoC */}
+              <div className="flex-1 min-w-[120px] bg-slate-900 p-[10px] rounded-xl border border-slate-800 ring-1 ring-white/5 shadow-inner flex flex-col justify-center">
+                <label className="config-label-small uppercase text-slate-600 font-black block mb-1 tracking-widest">INITIAL SOC (%)</label>
+                <input type="number" value={battery.initialSoC} onChange={(e) => handleUpdateBattery('initialSoC', Math.min(100, Number(e.target.value)))} className="bg-transparent border-none w-full text-slate-200 font-mono config-input-small focus:ring-0 font-black outline-none p-0" />
+              </div>
+
+              {/* Export/Import Icons (Swapped per request) */}
+              <div className="w-[48px] flex flex-col gap-1.5 self-stretch">
+                <button 
+                  onClick={handleExport} 
+                  className="flex-1 bg-slate-800 hover:bg-slate-700 rounded-lg border border-slate-700 transition-colors flex items-center justify-center group" 
+                  title="Export JSON"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-3.5 h-3.5 text-slate-400 group-hover:text-blue-400 transition-colors">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" />
+                  </svg>
+                </button>
+                <button 
+                  onClick={handleTriggerImport} 
+                  className="flex-1 bg-slate-800 hover:bg-slate-700 rounded-lg border border-slate-700 transition-colors flex items-center justify-center group" 
+                  title="Import JSON"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-3.5 h-3.5 text-slate-400 group-hover:text-emerald-400 transition-colors">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
+                  </svg>
+                  <input type="file" ref={fileInputRef} accept=".json" onChange={handleImport} className="hidden" />
+                </button>
+              </div>
             </div>
+          </section>
+
+          <section>
+            <h2 className="app-header-font text-sm text-slate-400 mb-6 uppercase">Generation (Power In)</h2>
+            <ChargingTable 
+              sources={charging} battery={battery}
+              highlightedId={highlightedRow?.kind === 'source' ? highlightedRow.id : null}
+              onUpdateSource={handleUpdateSource}
+              onDeleteSource={(id) => setCharging(p => p.filter(s => s.id !== id))}
+              onAddSource={() => setCharging(p => [...p, { id: Math.random().toString(36).substr(2, 9), name: 'New Source', input: 0, unit: 'W', efficiency: 0.9, type: 'solar', hours: 5, autoSolar: false }])}
+              onAIAddSource={() => { setChatMode('source'); setChatOpen(true); }}
+              onUpdateBattery={handleUpdateBattery}
+              onReorder={() => {}} onSort={() => {}}
+            />
+          </section>
+
+          <section>
+            <h2 className="app-header-font text-sm text-slate-400 mb-6 uppercase">System Mgmt</h2>
+            <EnergyTable 
+              items={items} systemVoltage={battery.voltage}
+              highlightedId={highlightedRow?.kind === 'load' ? highlightedRow.id : null}
+              onUpdateItem={handleUpdateItem} onDeleteItem={handleDeleteItem}
+              onAddItem={handleAddItem} onAIAddItem={() => { setChatMode('load'); setChatOpen(true); }}
+              visibleCategories={[LoadCategory.SYSTEM_MGMT]}
+              onReorder={() => {}} onSort={() => {}}
+            />
+          </section>
+
+          <section>
+            <h2 className="app-header-font text-sm text-slate-400 mb-6 uppercase">Consumption (Loads)</h2>
+            <EnergyTable 
+              items={items} systemVoltage={battery.voltage}
+              highlightedId={highlightedRow?.kind === 'load' ? highlightedRow.id : null}
+              onUpdateItem={handleUpdateItem} onDeleteItem={handleDeleteItem}
+              onAddItem={handleAddItem} onAIAddItem={() => { setChatMode('load'); setChatOpen(true); }}
+              visibleCategories={[LoadCategory.DC_LOADS, LoadCategory.AC_LOADS]}
+              onReorder={() => {}} onSort={() => {}}
+            />
           </section>
         </div>
         <div className="w-full">
@@ -424,15 +331,9 @@ const App: React.FC = () => {
       </main>
 
       <ChatBot 
-        items={items} 
-        totals={totals} 
-        isOpen={chatOpen} 
-        modeProp={chatMode} 
-        contextItem={chatContextItem}
-        onOpen={() => setChatOpen(true)}
-        onClose={() => { setChatOpen(false); setChatContextItem(null); setChatMode('general'); }}
-        onAddLoadItem={handleAIAddLoad} 
-        onAddChargingSource={handleAIAddSource}
+        items={items} totals={totals} isOpen={chatOpen} modeProp={chatMode} 
+        onOpen={() => setChatOpen(true)} onClose={() => setChatOpen(false)}
+        onAddLoadItem={handleAIAddLoad} onAddChargingSource={handleAIAddSource}
       />
     </div>
   );

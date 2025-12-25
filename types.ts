@@ -27,9 +27,14 @@ export interface ChargingSource {
 }
 
 export interface SolarForecast {
-  sunnyHours: number;
-  cloudyHours: number;
+  sunnyHours?: number; // Month Avg PSH
+  cloudyHours?: number; // Typical bad day PSH
+  nowHours?: number;   // Real-time weather PSH (deterministic)
   loading: boolean;
+  updatedAt?: string;
+  error?: string;
+  lat?: number;
+  lon?: number;
 }
 
 export interface BatteryConfig {
@@ -37,6 +42,8 @@ export interface BatteryConfig {
   voltage: number;
   initialSoC: number;
   location: string;
+  forecastMode: 'now' | 'monthAvg';
+  forecastMonth?: string; // YYYY-MM
   forecast?: SolarForecast;
 }
 
@@ -55,9 +62,16 @@ export type ChatMode = 'general' | 'load' | 'source';
 export interface ChatMessage {
   role: 'user' | 'model';
   text: string;
-  summary?: string;   // Brief version
-  expanded?: string;  // Detailed version
+  summary?: string;
+  expanded?: string;
   timestamp: Date;
   category?: 'general' | 'load' | 'source' | 'system'; 
   isError?: boolean;
+}
+
+export interface AppStateExport {
+  version: string;
+  items: PowerItem[];
+  charging: ChargingSource[];
+  battery: BatteryConfig;
 }

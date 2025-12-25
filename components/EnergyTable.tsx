@@ -17,7 +17,7 @@ interface EnergyTableProps {
 
 const CATEGORY_DISPLAY_NAMES: Record<string, string> = {
   [LoadCategory.DC_LOADS]: 'DC (Native &/or via Converter)',
-  [LoadCategory.AC_LOADS]: 'AC (via Inverter)',
+  [LoadCategory.AC_LOADS]: 'AC (VIA INVERTER)',
   [LoadCategory.SYSTEM_MGMT]: 'System Mgmt'
 };
 
@@ -116,7 +116,7 @@ const EnergyTable: React.FC<EnergyTableProps> = ({
       <React.Fragment key={category}>
         <tr className="bg-slate-950/80 border-t-2 border-slate-800">
           <td colSpan={9} className="px-4 py-3">
-            <span className="app-header-font text-[10px] text-blue-400">
+            <span className="app-header-font text-[10px] text-blue-400 uppercase">
               {CATEGORY_DISPLAY_NAMES[category] || category}
             </span>
           </td>
@@ -189,12 +189,12 @@ const EnergyTable: React.FC<EnergyTableProps> = ({
           <tr>
             <th className="w-8"></th>
             <SortHeader label="Item" sortKey="name" currentSort={sortState} onSort={handleSort} widthClass="min-w-[200px]" />
-            <SortHeader label="Power (W)" sortKey="watts" currentSort={sortState} onSort={handleSort} className="text-right" widthClass="w-[120px]" />
-            <SortHeader label="Hrs/Day" sortKey="hours" currentSort={sortState} onSort={handleSort} className="text-right" widthClass="w-[110px]" />
-            <th className="px-4 py-4 text-right whitespace-nowrap w-[110px]">Duty %</th>
-            <SortHeader label="Daily Wh" sortKey="wh" currentSort={sortState} onSort={handleSort} className="text-right" widthClass="w-[110px]" />
-            <SortHeader label="AH Total" sortKey="ah" currentSort={sortState} onSort={handleSort} className="text-right" widthClass="w-[110px]" />
-            <th className="px-4 py-4 whitespace-nowrap">Notes</th>
+            <SortHeader label="POWER (W)" sortKey="watts" currentSort={sortState} onSort={handleSort} className="text-right" widthClass="w-[120px]" />
+            <SortHeader label="HRS/DAY" sortKey="hours" currentSort={sortState} onSort={handleSort} className="text-right" widthClass="w-[110px]" />
+            <th className="px-4 py-4 text-right whitespace-nowrap w-[110px]">DUTY %</th>
+            <SortHeader label="DAILY WH" sortKey="wh" currentSort={sortState} onSort={handleSort} className="text-right" widthClass="w-[110px]" />
+            <SortHeader label="AH TOTAL" sortKey="ah" currentSort={sortState} onSort={handleSort} className="text-right" widthClass="w-[110px]" />
+            <th className="px-4 py-4 whitespace-nowrap uppercase">Notes</th>
             <th className="px-4 py-4 w-10"></th>
           </tr>
         </thead>

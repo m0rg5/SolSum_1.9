@@ -1,24 +1,37 @@
 import { PowerItem, LoadCategory, ChargingSource, BatteryConfig, SystemTotals } from '../types';
 
-const isMgmtItem = (name: string) => {
-  const n = name.toLowerCase();
-  return n.includes('mppt') || n.includes('inverter') || n.includes('controller') || n.includes('rover');
-};
-
 export const getInverterEfficiency = (watts: number): number => {
   const w = Number(watts) || 0;
   if (w <= 0) return 1;
   const loadRatio = w / 2000;
-  if (loadRatio < 0.05) return 0.80;
-  if (loadRatio < 0.15) return 0.88;
-  if (loadRatio < 0.40) return 0.92;
-  if (loadRatio < 0.80) return 0.95;
+  if (loadRatio < 0.05) return 0.75;
+  if (loadRatio < 0.15) return 0.85;
+  if (loadRatio < 0.40) return 0.90;
+  if (loadRatio < 0.80) return 0.94;
   return 0.91;
 };
 
-export const calculateItemEnergy = (item: PowerItem, systemVoltage: number) => {
-  if (isMgmtItem(item.name)) return { wh: 0, ah: 0, efficiency: 1 };
+/**
+ * Single Source of Truth for Solar Hours.
+ * Priortizes deterministic forecast when AUTO is enabled.
+ */
+export const getEffectiveSolarHours = (source: ChargingSource, battery: BatteryConfig): number => {
+  const manualHours = Number(source.hours) || 0;
+  if (!source.autoSolar || source.type !== 'solar' || !battery.forecast) {
+    return manualHours;
+  }
 
+  const { forecast, forecastMode } = battery;
+  if (forecast.loading) return manualHours > 0 ? manualHours : 4.0;
+
+  if (forecastMode === 'now') {
+    return typeof forecast.nowHours === 'number' ? forecast.nowHours : (manualHours || 4.0);
+  } else {
+    return typeof forecast.sunnyHours === 'number' ? forecast.sunnyHours : (manualHours || 4.5);
+  }
+};
+
+export const calculateItemEnergy = (item: PowerItem, systemVoltage: number) => {
   const watts = Number(item.watts) || 0;
   const hours = Number(item.hours) || 0;
   const v = Number(systemVoltage) || 24;
@@ -26,7 +39,7 @@ export const calculateItemEnergy = (item: PowerItem, systemVoltage: number) => {
 
   if (item.category === LoadCategory.AC_LOADS) {
     const efficiency = getInverterEfficiency(watts);
-    const totalWatts = watts / (efficiency || 0.9);
+    const totalWatts = watts / (efficiency || 0.85);
     const wh = totalWatts * hours * dutyMultiplier;
     return { wh: wh || 0, ah: (wh / v) || 0, efficiency };
   }
@@ -50,13 +63,9 @@ export const calculateSystemTotals = (
 
   let dailyWhGenerated = 0;
   charging.forEach(source => {
-    if (isMgmtItem(source.name)) return;
-
-    let hours = Number(source.hours) || 0;
-    // LOGIC FIX: If forecast is loading/missing, default to 4.0h (Avg) to prevent "1.7d" panic
-    if (source.autoSolar && source.type === 'solar' && battery.forecast && !battery.forecast.loading) {
-       hours = Number(battery.forecast.sunnyHours) || 4.0;
-    }
+    const hours = source.type === 'solar' 
+      ? getEffectiveSolarHours(source, battery)
+      : (Number(source.hours) || 0);
 
     const input = Number(source.input) || 0;
     const efficiency = Number(source.efficiency) || 0.85;
@@ -95,27 +104,26 @@ export const calculateAutonomy = (
   charging: ChargingSource[],
   battery: BatteryConfig,
   scenario: 'current' | 'peak' | 'cloud' | 'zero',
-  solarForecast?: { sunny: number, cloudy: number }
+  solarForecast?: { sunny?: number, cloudy?: number, now?: number }
 ) => {
-  const totals = calculateSystemTotals(items, [], battery);
-  const dailyWhConsumed = totals.dailyWhConsumed || 0;
+  const totals = calculateSystemTotals(items, charging, battery);
   const systemV = Number(battery.voltage) || 24;
   const totalCapacityWh = (Number(battery.capacityAh) || 400) * systemV;
-
+  
+  let dailyWhConsumed = totals.dailyWhConsumed || 0;
   let dailyWhGenerated = 0;
-  if (scenario !== 'zero') {
+
+  if (scenario === 'current') {
+    dailyWhGenerated = totals.dailyWhGenerated;
+  } else if (scenario === 'zero') {
+    dailyWhGenerated = 0;
+  } else {
     charging.forEach(source => {
-      if (isMgmtItem(source.name)) return;
-
       let h = Number(source.hours) || 0;
-      
-      // SCENARIO LOGIC: Force defaults if forecast is 0/null
       if (source.type === 'solar') {
-        if (scenario === 'current') h = solarForecast ? (Number(solarForecast.sunny) || 4.0) : 4.0;
-        if (scenario === 'peak') h = solarForecast ? (Number(solarForecast.sunny) || 6.0) : 6.0;
-        if (scenario === 'cloud') h = solarForecast ? (Number(solarForecast.cloudy) || 2.0) : 2.0;
+        if (scenario === 'peak') h = solarForecast ? (solarForecast.sunny || 6.0) : 6.0;
+        if (scenario === 'cloud') h = solarForecast ? (solarForecast.cloudy || 1.5) : 1.5;
       }
-
       const input = Number(source.input) || 0;
       const efficiency = Number(source.efficiency) || 0.85;
       const val = source.unit === 'W'
@@ -127,7 +135,7 @@ export const calculateAutonomy = (
 
   const netWhPerDay = dailyWhGenerated - dailyWhConsumed;
 
-  // INVARIANT: Net Positive = Infinity
+  // STRICT INVARIANT: If net is positive, battery never empties.
   if (netWhPerDay >= 0) {
     return { days: Infinity, hours: Infinity, netWh: netWhPerDay };
   }

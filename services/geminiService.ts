@@ -12,8 +12,7 @@ const LOAD_TOOLS = [{
       type: Type.OBJECT,
       properties: {
         name: { type: Type.STRING, description: 'Model/Name of the device' },
-        // Removed strict enum to allow model flexibility. Normalized in App.tsx.
-        category: { type: Type.STRING, description: 'Category: "AC Loads", "DC Loads", or "System Mgmt"' },
+        category: { type: Type.STRING, description: 'Category: "AC Loads (Inverter)", "DC Loads (Native/DCDC)", or "System Mgmt"' },
         watts: { type: Type.NUMBER, description: 'Power consumption in Watts' },
         hours: { type: Type.NUMBER, description: 'Estimated hours used per day' },
         dutyCycle: { type: Type.NUMBER, description: 'Duty cycle percentage (1-100)' },
@@ -35,7 +34,7 @@ const SOURCE_TOOLS = [{
         input: { type: Type.NUMBER, description: 'Input value (Watts or Amps)' },
         unit: { type: Type.STRING, enum: ['W', 'A'] },
         hours: { type: Type.NUMBER, description: 'Generation hours per day' },
-        efficiency: { type: Type.NUMBER, description: 'Efficiency decimal (0.1 to 1.0)' },
+        efficiency: { type: Type.NUMBER, description: 'Efficiency decimal (0.1 to 1.0). For Solar, default to 0.85 (system derating).' },
         type: { type: Type.STRING, enum: ['solar', 'alternator', 'generator', 'mppt', 'charger', 'wind', 'other'] }
       },
       required: ['name', 'input', 'unit', 'type']
@@ -44,31 +43,29 @@ const SOURCE_TOOLS = [{
 }];
 
 export const createChatSession = (mode: ChatMode): Chat => {
-  // STRICTLY gemini-3-flash-preview
   if (mode === 'load' || mode === 'source') {
     return ai.chats.create({
       model: 'gemini-3-flash-preview', 
       config: {
-        systemInstruction: `You are a dedicated DATA EXTRACTION API.
+        systemInstruction: `You are a dedicated DATA EXTRACTION API for an off-grid energy planner.
         Your ONLY allowed behavior is to call the provided tools.
-        1. Analyze user input for technical specifications of electrical components.
-        2. If you find a component, IMMEDIATELY call the corresponding tool (addLoadItem or addChargingSource).
-        3. Even if some data is missing, make a technical estimate and put assumptions in 'notes'.
-        4. NEVER respond with text or JSON. 
-        5. NEVER explain what you are doing. 
-        6. If the input is not a technical specification, call the tool with your best guess from context or ask for clarification implicitly by providing a partial tool call.`,
+        1. Analyze user input for technical specifications.
+        2. When estimating AC items, you MUST explicitly consider the total system overhead.
+        3. For AC Loads (Inverter), focus on the item's plate wattage. The system automatically calculates conversion losses (efficiency curve).
+        4. If a user asks for an inverter itself, suggest placing it in "System Mgmt" as a standby load.
+        5. For solar panels, assume an efficiency (derating) of 0.85. NEVER use 0.20 as that is panel conversion efficiency, which is already reflected in the rated Watts.
+        6. Even if some data is missing, make a technical estimate and put assumptions in 'notes'.
+        7. NEVER respond with text or JSON. ONLY call tools.`,
         tools: mode === 'load' ? LOAD_TOOLS : SOURCE_TOOLS,
         toolConfig: {
           functionCallingConfig: {
-            // Use FunctionCallingConfigMode.ANY enum value instead of string literal to fix TS error
-            mode: FunctionCallingConfigMode.ANY // Forces the model to use a tool call.
+            mode: FunctionCallingConfigMode.ANY 
           }
         }
       }
     });
   }
 
-  // General Chat
   return ai.chats.create({
     model: 'gemini-3-flash-preview',
     config: {
@@ -79,7 +76,7 @@ export const createChatSession = (mode: ChatMode): Chat => {
         "summary": "A very brief 1-2 sentence direct answer.",
         "expanded": "A detailed, technical Markdown explanation with calculations if relevant."
       }
-      Do not use markdown code blocks for the JSON itself.`,
+      When discussing AC loads, explain that the system automatically calculates inverter efficiency losses (overhead) on top of the plate wattage.`,
       responseMimeType: "application/json",
       responseSchema: {
         type: Type.OBJECT,
@@ -97,7 +94,9 @@ export const getSolarForecast = async (location: string) => {
   try {
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
-      contents: `Solar forecast for ${location}. Return JSON.`,
+      contents: `You are a solar engineering database. Return the average daily Peak Sun Hours (PSH) for '${location}' for the CURRENT MONTH. 
+      If the location is in the Southern Hemisphere (e.g. Sydney, Australia), ensure you reflect summer values (typically 7.0-8.5 PSH in Dec/Jan).
+      Return ONLY valid JSON in this format: { "sunnyHours": number, "cloudyHours": number }.`,
       config: { responseMimeType: "application/json" }
     });
     return JSON.parse(response.text || '{}');
