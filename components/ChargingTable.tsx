@@ -135,12 +135,15 @@ const ChargingTable: React.FC<ChargingTableProps> = ({
         <tbody className="divide-y divide-slate-800/50">
           {sortedSources.map(source => {
             const managementItem = isMgmt(source);
-            const effectiveHours = getEffectiveSolarHours(source, battery);
+            const rawEffectiveHours = getEffectiveSolarHours(source, battery);
+            // Limit to 1 decimal place (e.g. 7.1) for cleaner display
+            const effectiveHours = Math.round(rawEffectiveHours * 10) / 10;
+            
             const efficiency = Number(source.efficiency) || 0.85;
             const inputVal = Number(source.input) || 0;
             const systemV = Number(battery.voltage) || 24;
             const qty = Number(source.quantity) || 1;
-            const dailyWh = managementItem ? 0 : (source.unit === 'W' ? (inputVal * effectiveHours * efficiency * qty) : (inputVal * systemV * effectiveHours * efficiency * qty));
+            const dailyWh = managementItem ? 0 : (source.unit === 'W' ? (inputVal * rawEffectiveHours * efficiency * qty) : (inputVal * systemV * rawEffectiveHours * efficiency * qty));
             const isHighlighted = highlightedId === source.id;
             
             // Unified "AUTO ERR" logic using shared normalization result
