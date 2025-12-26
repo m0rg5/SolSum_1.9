@@ -1,4 +1,3 @@
-
 import { PowerItem, LoadCategory, ChargingSource, BatteryConfig, SystemTotals } from '../types';
 
 export const getInverterEfficiency = (watts: number): number => {
@@ -14,25 +13,51 @@ export const getInverterEfficiency = (watts: number): number => {
 
 /**
  * Normalizes solar forecast data.
- * Returns status and value. 0.0 is considered a valid "ok" result.
+ * Returns status and value. value is null if status is not 'ok'.
  */
-export const normalizeAutoSolarHours = (battery: BatteryConfig) => {
-  if (!battery.forecast) return { status: 'nodata', value: 4.0 };
-  if (battery.forecast.loading) return { status: 'loading', value: 4.0 };
+export const normalizeAutoSolarHours = (battery: BatteryConfig): { 
+  status: 'ok' | 'loading' | 'nodata' | 'invalid', 
+  value: number | null,
+  fallbackValue: number 
+} => {
+  const DEFAULT_FALLBACK = 4.0;
 
+  // INSTRUMENTATION (TEMP)
+  console.log('[AUTOH]', {
+    loading: battery.forecast?.loading, 
+    fetched: battery.forecast?.fetched, 
+    mode: battery.forecastMode, 
+    now: battery.forecast?.nowHours, 
+    sunny: battery.forecast?.sunnyHours
+  });
+  
+  // 1. Missing forecast object
+  if (!battery.forecast) {
+    return { status: 'nodata', value: null, fallbackValue: DEFAULT_FALLBACK };
+  }
+  
+  // 2. Active loading state OR not yet fetched - MUST return null value to trigger fallback in physics
+  if (battery.forecast.loading || !battery.forecast.fetched) {
+    return { status: 'loading', value: null, fallbackValue: DEFAULT_FALLBACK };
+  }
+
+  // 3. Null-safe data extraction
   const raw = battery.forecastMode === 'now' 
-    ? battery.forecast.nowHours 
-    : battery.forecast.sunnyHours;
+    ? battery.forecast?.nowHours 
+    : battery.forecast?.sunnyHours;
 
-  // Fix: Removed comparison to empty string as 'raw' is typed as number | undefined.
-  // We check for undefined or null to treat as "nodata".
-  if (raw === undefined || raw === null) return { status: 'nodata', value: 4.0 };
+  // 4. Strict check for missingness (prevents Number("") or null/undefined from becoming 0)
+  if (raw === undefined || raw === null || (raw as any) === '') {
+    return { status: 'nodata', value: null, fallbackValue: DEFAULT_FALLBACK };
+  }
   
   const val = Number(raw);
-  // NaN (from non-numeric strings) or invalid ranges are "invalid"
-  if (isNaN(val) || val < 0 || val > 15) return { status: 'invalid', value: 4.0 };
+  // 5. Physics sanity check (0 is allowed, but must be a finite number)
+  if (!isFinite(val) || val < 0 || val > 15) {
+    return { status: 'invalid', value: null, fallbackValue: DEFAULT_FALLBACK };
+  }
   
-  return { status: 'ok', value: val };
+  return { status: 'ok', value: val, fallbackValue: val };
 };
 
 /**
@@ -45,13 +70,13 @@ export const getEffectiveSolarHours = (source: ChargingSource, battery: BatteryC
     return manualHours;
   }
 
-  const { status, value } = normalizeAutoSolarHours(battery);
+  const norm = normalizeAutoSolarHours(battery);
   
-  // If we have valid data (including explicit 0.0), use it.
-  if (status === 'ok') return value;
+  // Physics Guard: If we have valid data (including explicit 0.0), use it.
+  if (norm.status === 'ok' && norm.value !== null) return norm.value;
   
-  // Fallback: If loading or no-data, use the manual input if it's > 0, otherwise standard 4.0h.
-  return manualHours > 0 ? manualHours : 4.0;
+  // Fallback: Use manual input if user provided one, else the standard fallback.
+  return manualHours > 0 ? manualHours : norm.fallbackValue;
 };
 
 export const calculateItemEnergy = (item: PowerItem, systemVoltage: number) => {

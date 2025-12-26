@@ -27,7 +27,7 @@ const NumberInput = ({
   className,
   step = "any",
   disabled = false,
-  placeholder = "0"
+  placeholder = ""
 }: { 
   value: number, 
   onChange: (val: number) => void, 
@@ -36,18 +36,23 @@ const NumberInput = ({
   disabled?: boolean,
   placeholder?: string
 }) => {
-  const [localStr, setLocalStr] = useState(value?.toString() || '');
+const [localStr, setLocalStr] = useState(
+  Number.isFinite(value) ? String(value) : ''
+);
   useEffect(() => {
-    const v = Number(value) || 0;
-    const parsed = parseFloat(localStr);
-    if (Math.abs(parsed - v) > 0.0001 || isNaN(parsed)) setLocalStr(value?.toString() || '');
-  }, [value]);
+  if (Number.isFinite(value)) {
+    const next = String(value);
+    if (localStr !== next) setLocalStr(next);
+  } else {
+    if (localStr !== '') setLocalStr('');
+  }
+}, [value]);
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
     setLocalStr(val);
     const parsed = parseFloat(val);
     if (!isNaN(parsed)) onChange(parsed);
-    else if (val === '') onChange(0);
   };
   
   return (

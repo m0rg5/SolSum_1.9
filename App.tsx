@@ -11,6 +11,7 @@ import HeaderGraph from './components/HeaderGraph';
 
 const STORAGE_KEY = "solsum_state_v2_1";
 const STORAGE_SCHEMA_VERSION = "2.1";
+const FORECAST_TTL_MS = 6 * 60 * 60 * 1000; // 6 hours
 
 const App: React.FC = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -46,7 +47,13 @@ const App: React.FC = () => {
         const parsed = JSON.parse(saved);
         const bat = parsed.data?.battery;
         if (bat) {
-          if (bat.forecast) bat.forecast.loading = false;
+          if (bat.forecast) {
+            bat.forecast.loading = false;
+            // TTL Guard: Only mark as fetched if the data is recent enough
+            const updatedAt = bat.forecast.updatedAt ? new Date(bat.forecast.updatedAt).getTime() : 0;
+            const isFresh = (Date.now() - updatedAt) < FORECAST_TTL_MS;
+            bat.forecast.fetched = isFresh ? (bat.forecast.fetched || false) : false;
+          }
           if (!bat.forecastMode) bat.forecastMode = 'now';
           if (!bat.forecastMonth) {
             const now = new Date();
@@ -88,7 +95,11 @@ const App: React.FC = () => {
       if (!battery.location || battery.location.length < 1) return;
       setBattery(prev => ({ 
         ...prev, 
-        forecast: { ...(prev.forecast || {}), loading: true, error: undefined } 
+        forecast: { 
+          ...(prev.forecast || { fetched: false }), 
+          loading: true, 
+          error: undefined 
+        } 
       }));
       try {
         const geo = await geocodeLocation(battery.location);
@@ -104,18 +115,23 @@ const App: React.FC = () => {
         setBattery(prev => ({ 
           ...prev, 
           forecast: { 
-            ...(prev.forecast || {}),
+            ...(prev.forecast || { fetched: false }),
             ...forecastData,
             lat: geo.lat,
             lon: geo.lon,
             loading: false,
+            fetched: true,
             updatedAt: new Date().toISOString()
           } 
         }));
       } catch (e: any) {
         setBattery(prev => ({ 
           ...prev, 
-          forecast: { ...(prev.forecast || {}), loading: false, error: e.message } 
+          forecast: { 
+            ...(prev.forecast || { fetched: false }), 
+            loading: false, 
+            error: e.message 
+          } 
         }));
       }
     };

@@ -33,6 +33,7 @@ export interface SolarForecast {
   cloudyHours?: number; // Typical bad day PSH
   nowHours?: number;   // Real-time weather PSH (deterministic)
   loading: boolean;
+  fetched: boolean;
   updatedAt?: string;
   error?: string;
   lat?: number;
