@@ -15,78 +15,72 @@ const FORECAST_TTL_MS = 6 * 60 * 60 * 1000; // 6 hours
 
 const App: React.FC = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const isHydrated = useRef(false);
+  const [hasHydrated, setHasHydrated] = useState(false);
+
+  // Persistence Helper: Get Saved Data
+  const getSavedData = () => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.data) return parsed.data;
+      }
+    } catch (e) {
+      console.warn("Failed to load saved state", e);
+    }
+    return null;
+  };
+
+  const savedData = useMemo(() => getSavedData(), []);
 
   // Persistence: Load
-  const [items, setItems] = useState<PowerItem[]>(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (parsed.data?.items) return parsed.data.items;
-      }
-    } catch (e) {}
-    return INITIAL_DATA;
-  });
-
-  const [charging, setCharging] = useState<ChargingSource[]>(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (parsed.data?.charging) return parsed.data.charging;
-      }
-    } catch (e) {}
-    return INITIAL_CHARGING;
-  });
-
+  const [items, setItems] = useState<PowerItem[]>(() => savedData?.items || INITIAL_DATA);
+  const [charging, setCharging] = useState<ChargingSource[]>(() => savedData?.charging || INITIAL_CHARGING);
   const [battery, setBattery] = useState<BatteryConfig>(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        const bat = parsed.data?.battery;
-        if (bat) {
-          if (bat.forecast) {
-            bat.forecast.loading = false;
-            // TTL Guard: Only mark as fetched if the data is recent enough
-            const updatedAt = bat.forecast.updatedAt ? new Date(bat.forecast.updatedAt).getTime() : 0;
-            const isFresh = (Date.now() - updatedAt) < FORECAST_TTL_MS;
-            bat.forecast.fetched = isFresh ? (bat.forecast.fetched || false) : false;
-          }
-          if (!bat.forecastMode) bat.forecastMode = 'now';
-          if (!bat.forecastMonth) {
-            const now = new Date();
-            bat.forecastMonth = `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}`;
-          }
-          return bat;
-        }
-      }
-    } catch (e) {}
-    return { 
+    const savedBat = savedData?.battery;
+    if (!savedBat) return { 
       ...INITIAL_BATTERY, 
       forecastMode: 'now',
       forecastMonth: `${new Date().getFullYear()}-${(new Date().getMonth() + 1).toString().padStart(2, '0')}`
     };
+
+    // Deep merge to ensure new system keys (like forecastMode) are present even in old saves
+    const base = {
+      ...INITIAL_BATTERY,
+      forecastMode: 'now' as const,
+      forecastMonth: `${new Date().getFullYear()}-${(new Date().getMonth() + 1).toString().padStart(2, '0')}`,
+      ...savedBat
+    };
+
+    if (base.forecast) {
+      base.forecast.loading = false;
+      const updatedAt = base.forecast.updatedAt ? new Date(base.forecast.updatedAt).getTime() : 0;
+      const isFresh = (Date.now() - updatedAt) < FORECAST_TTL_MS;
+      base.forecast.fetched = isFresh ? (base.forecast.fetched || false) : false;
+    }
+    return base;
   });
   
   const [chatOpen, setChatOpen] = useState(false);
   const [chatMode, setChatMode] = useState<ChatMode>('general');
   const [highlightedRow, setHighlightedRow] = useState<{ id: string, kind: 'load' | 'source' } | null>(null);
 
-  // Persistence: Save (Hydration Hardened)
+  // Persistence: Mark Hydration Complete
   useEffect(() => {
-    if (!isHydrated.current) {
-      isHydrated.current = true;
-      return;
-    }
+    setHasHydrated(true);
+  }, []);
+
+  // Persistence: Save Trigger
+  useEffect(() => {
+    if (!hasHydrated) return; // Prevent overwriting storage with defaults during first render
+
     const state = {
       version: STORAGE_SCHEMA_VERSION,
       savedAt: Date.now(),
       data: { items, charging, battery }
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  }, [items, charging, battery]);
+  }, [items, charging, battery, hasHydrated]);
 
   const totals = useMemo(() => calculateSystemTotals(items, charging, battery), [items, charging, battery]);
 
