@@ -430,7 +430,6 @@ Charging (${charging.length}): ${charging.map(c => `${c.name} (${c.input}${c.uni
                 <div className="absolute bottom-full left-0 right-0 p-3 flex gap-1.5 overflow-x-auto bg-gradient-to-t from-slate-950 to-transparent no-scrollbar pointer-events-auto">
                     <QuickSuggestion label="Run System Audit" onClick={() => handleSubmit(null, "Run System Audit")} />
                     <QuickSuggestion label="Cable Sizing" onClick={() => handleSubmit(null, "What cable sizes for 24V?")} />
-                    <QuickSuggestion label="System Status?" onClick={() => handleSubmit(null, "Current system status?")} />
                     {showMoreSuggestions && dynamicQs.map(q => <QuickSuggestion key={q} label={q} onClick={() => handleSubmit(null, q)} />)}
                     <button onClick={handleMoreQs} className="px-2.5 py-1 bg-blue-600/10 text-blue-500 rounded-full text-[8px] font-black uppercase border border-blue-600/20 hover:bg-blue-600/20 transition-all tracking-widest">
                       {showMoreSuggestions ? "LESS..." : "MORE..."}
