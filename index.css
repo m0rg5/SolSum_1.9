@@ -3,6 +3,18 @@
    Scoped to .app-root to avoid global pollution and fighting Tailwind.
 */
 
+/* VALUE FIELDS TWEAKS */
+button, input, optgroup, select, textarea {
+    font-size: 84% !important;
+  }
+.rounded {
+    border-radius: 0.2rem !important;
+}
+.px-1 {
+    padding-left: 0.1rem !important;
+    padding-right: 0.1rem !important;
+}
+
 /* --- GLOBAL RESET & BEHAVIOR --- */
 input::-webkit-outer-spin-button,
 input::-webkit-inner-spin-button {

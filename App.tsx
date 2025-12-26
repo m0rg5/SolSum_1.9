@@ -257,7 +257,7 @@ const App: React.FC = () => {
                 <input type="text" value={battery.location || ''} onChange={(e) => handleUpdateBattery('location', e.target.value)} placeholder="e.g. 2048" className="bg-transparent border-none w-full text-slate-200 font-mono config-input-small focus:ring-0 font-black outline-none p-0" />
               </div>
 
-              <div className="flex-1 min-w-[110px] bg-slate-900 p-[7px] rounded-lg border border-slate-800 ring-1 ring-white/5 shadow-inner relative flex flex-col justify-center">
+              <div className="flex-1 min-w-[70px] bg-slate-900 p-[7px] rounded-lg border border-slate-800 ring-1 ring-white/5 shadow-inner relative flex flex-col justify-center">
                 <div className="flex justify-between items-center mb-0.5">
                   <label className="config-label-small uppercase text-slate-600 font-black tracking-widest">MTH</label>
                   <label className="flex items-center gap-1 cursor-pointer group">
@@ -273,12 +273,12 @@ const App: React.FC = () => {
                 </div>
               </div>
 
-              <div className="flex-1 min-w-[110px] bg-slate-900 p-[7px] rounded-lg border border-slate-800 ring-1 ring-white/5 shadow-inner flex flex-col justify-center">
+              <div className="flex-1 min-w-[70px] bg-slate-900 p-[7px] rounded-lg border border-slate-800 ring-1 ring-white/5 shadow-inner flex flex-col justify-center">
                 <label className="config-label-small uppercase text-slate-600 font-black block mb-0.5 tracking-widest">BATTERY AH</label>
                 <input type="number" value={battery.capacityAh} onChange={(e) => handleUpdateBattery('capacityAh', Number(e.target.value))} className="bg-transparent border-none w-full text-slate-200 font-mono config-input-small focus:ring-0 font-black outline-none p-0" />
               </div>
 
-              <div className="flex-1 min-w-[110px] bg-slate-900 p-[7px] rounded-lg border border-slate-800 ring-1 ring-white/5 shadow-inner flex flex-col justify-center">
+              <div className="flex-1 min-w-[70px] bg-slate-900 p-[7px] rounded-lg border border-slate-800 ring-1 ring-white/5 shadow-inner flex flex-col justify-center">
                 <label className="config-label-small uppercase text-slate-600 font-black block mb-0.5 tracking-widest">INITIAL SOC (%)</label>
                 <input type="number" value={battery.initialSoC} onChange={(e) => handleUpdateBattery('initialSoC', Math.min(100, Number(e.target.value)))} className="bg-transparent border-none w-full text-slate-200 font-mono config-input-small focus:ring-0 font-black outline-none p-0" />
               </div>

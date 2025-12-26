@@ -123,12 +123,12 @@ const ChargingTable: React.FC<ChargingTableProps> = ({
           <tr>
             <th className="w-6"></th>
             <SortHeader label="Charging Source" sortKey="name" currentSort={sortState} onSort={handleSort} widthClass="min-w-[180px]" />
-            <th className="px-2 py-2 text-center whitespace-nowrap w-[40px]">@</th>
-            <SortHeader label="Input" sortKey="input" currentSort={sortState} onSort={handleSort} className="text-right" widthClass="w-[100px]" />
-            <th className="px-2 py-2 text-center whitespace-nowrap w-[60px]">☀️ Auto</th>
-            <SortHeader label="Hrs/Day" sortKey="hours" currentSort={sortState} onSort={handleSort} className="text-right" widthClass="w-[80px]" />
-            <SortHeader label="Efficiency" sortKey="efficiency" currentSort={sortState} onSort={handleSort} className="text-right" widthClass="w-[80px]" />
-            <SortHeader label="Daily Wh" sortKey="dailyWh" currentSort={sortState} onSort={handleSort} className="text-right" widthClass="w-[90px]" />
+            <th className="px-1 py-2 text-center whitespace-nowrap w-[18px]">@</th>
+            <SortHeader label="Input" sortKey="input" currentSort={sortState} onSort={handleSort} className="text-right" widthClass="w-[48px]" />
+            <th className="px-1 py-2 text-center whitespace-nowrap w-[30px]">☀️ Auto</th>
+            <SortHeader label="Hrs/Day" sortKey="hours" currentSort={sortState} onSort={handleSort} className="text-right" widthClass="w-[38px]" />
+            <SortHeader label="Efficiency" sortKey="efficiency" currentSort={sortState} onSort={handleSort} className="text-right" widthClass="w-[38px]" />
+            <SortHeader label="Daily Wh" sortKey="dailyWh" currentSort={sortState} onSort={handleSort} className="text-right" widthClass="w-[45px]" />
             <th className="px-2 py-2 w-8"></th>
           </tr>
         </thead>
@@ -162,18 +162,18 @@ const ChargingTable: React.FC<ChargingTableProps> = ({
                     className={`bg-transparent border-b border-transparent hover:border-slate-600 focus:border-blue-500 w-full text-slate-200 transition-colors text-[12px] font-medium outline-none ${managementItem ? 'italic' : ''}`}/>
                 </td>
                 <td className="px-1 py-1 text-right">
-                  <div className="inline-flex items-center justify-center w-[30px] bg-slate-850 border border-slate-700 rounded px-1 py-0.5 focus-within:border-blue-500 transition-colors">
+                  <div className="inline-flex items-center justify-center w-[18px] bg-slate-850 border border-slate-700 rounded px-1 py-0.5 focus-within:border-blue-500 transition-colors">
                     <NumberInput value={source.quantity || 1} onChange={(val) => onUpdateSource(source.id, 'quantity', Math.max(1, val))} placeholder="1" className="text-center pr-0" />
                   </div>
                 </td>
                 <td className="px-1 py-1 text-right">
                   {!managementItem ? (
-                    <div className="inline-flex items-center justify-end w-[80px] bg-slate-850 border border-slate-700 rounded px-1.5 py-0.5 focus-within:border-blue-500 transition-colors">
+                    <div className="inline-flex items-center justify-end w-[42px] bg-slate-850 border border-slate-700 rounded px-1 py-0.5 focus-within:border-blue-500 transition-colors">
                       <NumberInput value={source.input} onChange={(val) => onUpdateSource(source.id, 'input', val)} />
                       <select 
                         value={source.unit} 
                         onChange={(e) => onUpdateSource(source.id, 'unit', e.target.value)}
-                        className="bg-transparent text-[8px] text-slate-500 font-black uppercase outline-none cursor-pointer hover:text-blue-400"
+                        className="bg-transparent text-[7px] text-slate-500 font-black uppercase outline-none cursor-pointer hover:text-blue-400"
                       >
                         <option value="W">W</option>
                         <option value="A">A</option>
@@ -194,21 +194,21 @@ const ChargingTable: React.FC<ChargingTableProps> = ({
                   )}
                 </td>
                 <td className="px-1 py-1 text-right relative">
-                  <div className={`inline-flex items-center justify-end w-[60px] bg-slate-850 border border-slate-700 rounded px-1.5 py-0.5 focus-within:border-blue-500 transition-colors ${source.autoSolar ? 'opacity-50' : ''}`}>
+                  <div className={`inline-flex items-center justify-end w-[32px] bg-slate-850 border border-slate-700 rounded px-1 py-0.5 focus-within:border-blue-500 transition-colors ${source.autoSolar ? 'opacity-50' : ''}`}>
                     <NumberInput 
                       value={effectiveHours} 
                       onChange={(val) => onUpdateSource(source.id, 'hours', val)} 
                       step="0.1" 
                       disabled={source.autoSolar || managementItem} 
                     />
-                    <span className="text-[8px] text-slate-500 font-black uppercase shrink-0">H</span>
+                    <span className="text-[7px] text-slate-500 font-black uppercase shrink-0">H</span>
                   </div>
                   {isAutoErr && (
                     <div className="absolute -top-1 right-0.5 bg-rose-500 text-white text-[5px] font-black px-1 rounded animate-pulse">AUTO ERR</div>
                   )}
                 </td>
                 <td className="px-1 py-1 text-right">
-                  <div className="inline-flex items-center justify-end w-[60px] bg-slate-850 border border-slate-700 rounded px-1.5 py-0.5 focus-within:border-blue-500 transition-colors">
+                  <div className="inline-flex items-center justify-end w-[32px] bg-slate-850 border border-slate-700 rounded px-1 py-0.5 focus-within:border-blue-500 transition-colors">
                     <NumberInput 
                       value={efficiency} 
                       onChange={(val) => onUpdateSource(source.id, 'efficiency', val)} 
@@ -217,7 +217,7 @@ const ChargingTable: React.FC<ChargingTableProps> = ({
                     />
                   </div>
                 </td>
-                <td className="px-2 py-1 text-right font-mono text-emerald-400 font-bold text-[12px] whitespace-nowrap">
+                <td className="px-2 py-1 text-right font-mono text-emerald-400 font-bold text-[11px] whitespace-nowrap">
                   {dailyWh.toFixed(0)}
                 </td>
                 <td className="px-2 py-1 text-center w-8">
@@ -240,6 +240,6 @@ const ChargingTable: React.FC<ChargingTableProps> = ({
       </table>
     </div>
   );
-};
+}
 
 export default ChargingTable;

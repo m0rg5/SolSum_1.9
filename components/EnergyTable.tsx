@@ -116,12 +116,12 @@ const EnergyTable: React.FC<EnergyTableProps> = ({
           <tr>
             <th className="w-6"></th>
             <SortHeader label="Item" sortKey="name" currentSort={sortState} onSort={handleSortChange} widthClass="min-w-[180px]" />
-            <th className="px-2 py-2 text-center whitespace-nowrap w-[40px]">@</th>
-            <SortHeader label="POWER (W)" sortKey="watts" currentSort={sortState} onSort={handleSortChange} className="text-right" widthClass="w-[90px]" />
-            <SortHeader label="HRS/DAY" sortKey="hours" currentSort={sortState} onSort={handleSortChange} className="text-right" widthClass="w-[80px]" />
-            <th className="px-2 py-2 text-right whitespace-nowrap w-[80px]">DUTY %</th>
-            <SortHeader label="DAILY WH" sortKey="wh" currentSort={sortState} onSort={handleSortChange} className="text-right" widthClass="w-[90px]" />
-            <SortHeader label="AH TOTAL" sortKey="ah" currentSort={sortState} onSort={handleSortChange} className="text-right" widthClass="w-[90px]" />
+            <th className="px-1 py-2 text-center whitespace-nowrap w-[18px]">@</th>
+            <SortHeader label="POWER (W)" sortKey="watts" currentSort={sortState} onSort={handleSortChange} className="text-right" widthClass="w-[42px]" />
+            <SortHeader label="HRS/DAY" sortKey="hours" currentSort={sortState} onSort={handleSortChange} className="text-right" widthClass="w-[38px]" />
+            <th className="px-1 py-2 text-right whitespace-nowrap w-[38px]">DUTY %</th>
+            <SortHeader label="DAILY WH" sortKey="wh" currentSort={sortState} onSort={handleSortChange} className="text-right" widthClass="w-[45px]" />
+            <SortHeader label="AH TOTAL" sortKey="ah" currentSort={sortState} onSort={handleSortChange} className="text-right" widthClass="w-[45px]" />
             <th className="px-2 py-2 whitespace-nowrap uppercase">Notes</th>
             <th className="px-2 py-2 w-8"></th>
           </tr>
@@ -144,33 +144,33 @@ const EnergyTable: React.FC<EnergyTableProps> = ({
                 </td>
                 <td className="px-1 py-1 text-right">
                   {showQtyInput ? (
-                    <div className="inline-flex items-center justify-center w-[30px] bg-slate-850 border border-slate-700 rounded px-1 py-0.5 focus-within:border-blue-500 transition-colors">
+                    <div className="inline-flex items-center justify-center w-[18px] bg-slate-850 border border-slate-700 rounded px-1 py-0.5 focus-within:border-blue-500 transition-colors">
                       <NumberInput value={item.quantity || 1} onChange={(val) => onUpdateItem(item.id, 'quantity', Math.max(1, val))} placeholder="1" className="text-center pr-0" />
                     </div>
                   ) : (
-                    <div className="w-[30px] h-5 flex items-center justify-center opacity-20 text-slate-600 font-mono text-[8px]">-</div>
+                    <div className="w-[18px] h-5 flex items-center justify-center opacity-20 text-slate-600 font-mono text-[8px]">-</div>
                   )}
                 </td>
                 <td className="px-1 py-1 text-right">
-                  <div className={`inline-flex items-center justify-end w-[65px] bg-slate-850 border border-slate-700 rounded px-1.5 py-0.5 focus-within:border-blue-500 transition-colors ${managementItem ? 'border-dashed' : ''}`}>
+                  <div className={`inline-flex items-center justify-end w-[34px] bg-slate-850 border border-slate-700 rounded px-1 py-0.5 focus-within:border-blue-500 transition-colors ${managementItem ? 'border-dashed' : ''}`}>
                     <NumberInput value={item.watts} onChange={(val) => onUpdateItem(item.id, 'watts', val)} disabled={managementItem} />
-                    <span className="text-[8px] text-slate-500 font-black uppercase shrink-0">W</span>
+                    <span className="text-[7px] text-slate-500 font-black uppercase shrink-0">W</span>
                   </div>
                 </td>
                 <td className="px-1 py-1 text-right">
-                  <div className={`inline-flex items-center justify-end w-[60px] bg-slate-850 border border-slate-700 rounded px-1.5 py-0.5 focus-within:border-blue-500 transition-colors ${managementItem ? 'border-dashed' : ''}`}>
+                  <div className={`inline-flex items-center justify-end w-[30px] bg-slate-850 border border-slate-700 rounded px-1 py-0.5 focus-within:border-blue-500 transition-colors ${managementItem ? 'border-dashed' : ''}`}>
                     <NumberInput value={item.hours} onChange={(val) => onUpdateItem(item.id, 'hours', val)} step="0.1" disabled={managementItem} />
-                    <span className="text-[8px] text-slate-500 font-black uppercase shrink-0">H</span>
+                    <span className="text-[7px] text-slate-500 font-black uppercase shrink-0">H</span>
                   </div>
                 </td>
                 <td className="px-1 py-1 text-right">
-                   <div className={`inline-flex items-center justify-end w-[60px] bg-slate-850 border border-slate-700 rounded px-1.5 py-0.5 focus-within:border-blue-500 transition-colors ${managementItem ? 'border-dashed' : ''}`}>
+                   <div className={`inline-flex items-center justify-end w-[30px] bg-slate-850 border border-slate-700 rounded px-1 py-0.5 focus-within:border-blue-500 transition-colors ${managementItem ? 'border-dashed' : ''}`}>
                     <NumberInput value={item.dutyCycle || 100} onChange={(val) => onUpdateItem(item.id, 'dutyCycle', Math.min(100, Math.max(1, val)))} disabled={managementItem} className={item.dutyCycle < 100 ? 'text-amber-400' : ''}/>
-                    <span className="text-[8px] text-slate-500 font-black uppercase shrink-0">%</span>
+                    <span className="text-[7px] text-slate-500 font-black uppercase shrink-0">%</span>
                   </div>
                 </td>
-                <td className="px-2 py-1 text-right font-mono text-emerald-400 font-bold text-[12px] whitespace-nowrap">{(wh || 0).toFixed(0)}</td>
-                <td className="px-2 py-1 text-right font-mono text-amber-400 font-bold text-[12px] whitespace-nowrap relative">
+                <td className="px-2 py-1 text-right font-mono text-emerald-400 font-bold text-[11px] whitespace-nowrap">{(wh || 0).toFixed(0)}</td>
+                <td className="px-2 py-1 text-right font-mono text-amber-400 font-bold text-[11px] whitespace-nowrap relative">
                   <div className="flex items-center justify-end gap-1">{(ah || 0).toFixed(1)}
                      {isSuspicious && <div className="text-amber-500 animate-pulse"><svg viewBox="0 0 20 20" fill="currentColor" className="w-3 h-3"><path fillRule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495ZM10 5a.75.75 0 0 1 .75.75v3.5a.75.75 0 0 1-1.5 0v-3.5A.75.75 0 0 1 10 5Zm0 9a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z" clipRule="evenodd" /></svg></div>}
                   </div>
