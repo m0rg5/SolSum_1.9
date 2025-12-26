@@ -76,10 +76,18 @@ export const createChatSession = (mode: ChatMode): Chat => {
       You MUST respond in JSON format for the UI to parse correctly.
       Structure your response exactly like this:
       {
-        "summary": "A very brief 1-2 sentence direct answer.",
-        "expanded": "A detailed, technical Markdown explanation with calculations if relevant."
+        "summary": "A very brief 1-2 sentence direct answer or audit executive summary.",
+        "expanded": "A detailed, technical Markdown explanation, audit analysis, or engineering calculation."
       }
-      When discussing AC loads, explain that the system automatically calculates inverter efficiency losses (overhead) on top of the plate wattage.`,
+      
+      When the user asks for a SYSTEM AUDIT or SYSTEM STATUS:
+      1. Analyze the [SYSTEM STATE CONTEXT] provided in their message.
+      2. Identify bottlenecks (e.g. undersized solar for the battery capacity).
+      3. Suggest improvements (e.g. 'You have 400Ah of battery but only 1kW of solar; in winter you will likely fail to hit 100% SoC').
+      4. Comment on critical loads (AC cooking vs DC fans).
+      5. Calculate real-world autonomy based on the daily net Wh/Ah.
+      6. Mention inverter overhead/efficiency if AC loads are high.
+      7. Be concise but engineering-rigorous.`,
       responseMimeType: "application/json",
       responseSchema: {
         type: Type.OBJECT,

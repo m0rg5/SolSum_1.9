@@ -134,7 +134,7 @@ const EnergyTable: React.FC<EnergyTableProps> = ({
             const isHighlighted = highlightedId === item.id;
             
             return (
-              <tr key={item.id} className={`border-b border-slate-800 hover:bg-slate-800/40 transition-all duration-700 group ${draggedId === item.id ? 'opacity-50 bg-slate-800' : ''} ${managementItem ? 'bg-slate-900/40 opacity-60' : ''} ${isHighlighted ? 'bg-purple-900/40 border-purple-500/50 shadow-[inset_0_0_20px_rgba(168,85,247,0.1)] ring-1 ring-purple-500/30' : ''}`} draggable
+              <tr key={item.id} className={`border-b border-slate-800 hover:bg-slate-800/40 transition-all duration-700 group ${draggedId === item.id ? 'opacity-50 bg-slate-800' : ''} ${managementItem ? 'bg-slate-900/40' : ''} ${isHighlighted ? 'bg-purple-900/40 border-purple-500/50 shadow-[inset_0_0_20px_rgba(168,85,247,0.1)] ring-1 ring-purple-500/30' : ''}`} draggable
                 onDragStart={(e) => { setDraggedId(item.id); e.dataTransfer.setData("text/plain", item.id); }} onDragEnd={() => setDraggedId(null)} onDragOver={(e) => e.preventDefault()}
                 onDrop={(e) => { e.preventDefault(); if (draggedId && draggedId !== item.id) onReorder(draggedId, item.id); }}>
                 <td className="pl-2 pr-0 py-1 w-6 text-center cursor-move text-slate-700 hover:text-slate-400">⋮⋮</td>
@@ -152,20 +152,20 @@ const EnergyTable: React.FC<EnergyTableProps> = ({
                   )}
                 </td>
                 <td className="px-1 py-1 text-right">
-                  <div className={`inline-flex items-center justify-end w-[34px] bg-slate-850 border border-slate-700 rounded px-1 py-0.5 focus-within:border-blue-500 transition-colors ${managementItem ? 'border-dashed' : ''}`}>
-                    <NumberInput value={item.watts} onChange={(val) => onUpdateItem(item.id, 'watts', val)} disabled={managementItem} />
+                  <div className={`inline-flex items-center justify-end w-[34px] bg-slate-850 border border-slate-700 rounded px-1 py-0.5 focus-within:border-blue-500 transition-colors`}>
+                    <NumberInput value={item.watts} onChange={(val) => onUpdateItem(item.id, 'watts', val)} />
                     <span className="text-[7px] text-slate-500 font-black uppercase shrink-0">W</span>
                   </div>
                 </td>
                 <td className="px-1 py-1 text-right">
-                  <div className={`inline-flex items-center justify-end w-[30px] bg-slate-850 border border-slate-700 rounded px-1 py-0.5 focus-within:border-blue-500 transition-colors ${managementItem ? 'border-dashed' : ''}`}>
-                    <NumberInput value={item.hours} onChange={(val) => onUpdateItem(item.id, 'hours', val)} step="0.1" disabled={managementItem} />
+                  <div className={`inline-flex items-center justify-end w-[30px] bg-slate-850 border border-slate-700 rounded px-1 py-0.5 focus-within:border-blue-500 transition-colors`}>
+                    <NumberInput value={item.hours} onChange={(val) => onUpdateItem(item.id, 'hours', val)} step="0.1" />
                     <span className="text-[7px] text-slate-500 font-black uppercase shrink-0">H</span>
                   </div>
                 </td>
                 <td className="px-1 py-1 text-right">
-                   <div className={`inline-flex items-center justify-end w-[30px] bg-slate-850 border border-slate-700 rounded px-1 py-0.5 focus-within:border-blue-500 transition-colors ${managementItem ? 'border-dashed' : ''}`}>
-                    <NumberInput value={item.dutyCycle || 100} onChange={(val) => onUpdateItem(item.id, 'dutyCycle', Math.min(100, Math.max(1, val)))} disabled={managementItem} className={item.dutyCycle < 100 ? 'text-amber-400' : ''}/>
+                   <div className={`inline-flex items-center justify-end w-[30px] bg-slate-850 border border-slate-700 rounded px-1 py-0.5 focus-within:border-blue-500 transition-colors`}>
+                    <NumberInput value={item.dutyCycle || 100} onChange={(val) => onUpdateItem(item.id, 'dutyCycle', Math.min(100, Math.max(1, val)))} className={item.dutyCycle < 100 ? 'text-amber-400' : ''}/>
                     <span className="text-[7px] text-slate-500 font-black uppercase shrink-0">%</span>
                   </div>
                 </td>

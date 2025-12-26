@@ -2,11 +2,13 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Chat, GenerateContentResponse, FunctionCall } from "@google/genai";
 import ReactMarkdown from 'react-markdown';
 import { createChatSession, getDynamicSuggestions } from '../services/geminiService';
-import { ChatMessage, PowerItem, SystemTotals, ChargingSource, ChatMode } from '../types';
+import { ChatMessage, PowerItem, SystemTotals, ChargingSource, ChatMode, BatteryConfig } from '../types';
 
 interface ChatBotProps {
   items: PowerItem[];
   totals: SystemTotals;
+  battery: BatteryConfig;
+  charging: ChargingSource[];
   isOpen: boolean;
   modeProp?: ChatMode;
   contextItem?: PowerItem | ChargingSource | null;
@@ -27,8 +29,12 @@ const QuickSuggestion: React.FC<{ label: string; onClick: () => any }> = ({ labe
 
 const parseBotMessage = (text: string) => {
   try {
+    // Aggressively clean JSON markers and whitespace
     const cleanText = text.replace(/```json\n?|```/g, '').trim();
-    const data = JSON.parse(cleanText);
+    // Sometimes the model outputs text BEFORE or AFTER the JSON if not careful
+    const jsonMatch = cleanText.match(/\{[\s\S]*\}/);
+    const target = jsonMatch ? jsonMatch[0] : cleanText;
+    const data = JSON.parse(target);
     if (data.summary && data.expanded) {
       return { isJson: true, ...data };
     }
@@ -39,6 +45,8 @@ const parseBotMessage = (text: string) => {
 const ChatBot: React.FC<ChatBotProps> = ({ 
   items,
   totals,
+  battery,
+  charging,
   modeProp = 'general', 
   isOpen,
   onOpen,
@@ -269,7 +277,22 @@ const ChatBot: React.FC<ChatBotProps> = ({
     }
 
     try {
-        const result = await chatSessionRef.current.sendMessageStream({ message: textToSend });
+        // ENHANCEMENT: Inject system context if user asks for an audit or if it's the start of a conversation
+        let promptWithContext = textToSend;
+        const needsContext = textToSend.toLowerCase().match(/audit|status|check|system|health|capacity|life|can I|how long/);
+        
+        if (needsContext || messages.length <= 1) {
+          const snapshot = `
+[SYSTEM STATE CONTEXT]
+Battery: ${totals.finalSoC.toFixed(0)}% SoC (${battery.capacityAh}Ah @ ${battery.voltage}V)
+Net Change: ${totals.netWh.toFixed(0)}Wh / ${totals.netAh.toFixed(1)}Ah per day
+Loads (${items.length}): ${items.map(i => `${i.name} (${i.watts}W x ${i.hours}h)`).join(', ')}
+Charging (${charging.length}): ${charging.map(c => `${c.name} (${c.input}${c.unit} x ${c.hours}h)`).join(', ')}
+`;
+          promptWithContext = `${snapshot}\n\nUser Question: ${textToSend}`;
+        }
+
+        const result = await chatSessionRef.current.sendMessageStream({ message: promptWithContext });
         let fullRawText = '';
         let toolCall: FunctionCall | null = null;
         if (!silent) setMessages(prev => [...prev, { role: 'model', text: '', timestamp: new Date(), category: mode }]);
@@ -405,7 +428,7 @@ const ChatBot: React.FC<ChatBotProps> = ({
 
           <div className="bg-slate-950 border-t border-slate-800 p-3 relative z-40 shadow-[0_-15px_40px_rgba(0,0,0,0.5)]">
                 <div className="absolute bottom-full left-0 right-0 p-3 flex gap-1.5 overflow-x-auto bg-gradient-to-t from-slate-950 to-transparent no-scrollbar pointer-events-auto">
-                    <QuickSuggestion label="System Audit" onClick={() => handleSubmit(null, "Run System Audit")} />
+                    <QuickSuggestion label="Run System Audit" onClick={() => handleSubmit(null, "Run System Audit")} />
                     <QuickSuggestion label="Cable Sizing" onClick={() => handleSubmit(null, "What cable sizes for 24V?")} />
                     <QuickSuggestion label="System Status?" onClick={() => handleSubmit(null, "Current system status?")} />
                     {showMoreSuggestions && dynamicQs.map(q => <QuickSuggestion key={q} label={q} onClick={() => handleSubmit(null, q)} />)}

@@ -3,6 +3,11 @@
    Scoped to .app-root to avoid global pollution and fighting Tailwind.
 */
 
+/* CB bg */
+.bg-\[rgb\(64\2c 33\2c 84\)\] {
+    background-color: #f8b834 !important;
+}
+
 /* VALUE FIELDS TWEAKS */
 button, input, optgroup, select, textarea {
     font-size: 84% !important;
