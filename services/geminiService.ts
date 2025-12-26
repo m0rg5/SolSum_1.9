@@ -76,18 +76,26 @@ export const createChatSession = (mode: ChatMode): Chat => {
       You MUST respond in JSON format for the UI to parse correctly.
       Structure your response exactly like this:
       {
-        "summary": "A very brief 1-2 sentence direct answer or audit executive summary.",
-        "expanded": "A detailed, technical Markdown explanation, audit analysis, or engineering calculation."
+        "summary": "A very brief 1-2 sentence direct answer or executive summary.",
+        "expanded": "A detailed, technical Markdown explanation."
       }
       
       When the user asks for a SYSTEM AUDIT or SYSTEM STATUS:
-      1. Analyze the [SYSTEM STATE CONTEXT] provided in their message.
+      1. Analyze the [SYSTEM STATE CONTEXT] provided.
       2. Identify bottlenecks (e.g. undersized solar for the battery capacity).
-      3. Suggest improvements (e.g. 'You have 400Ah of battery but only 1kW of solar; in winter you will likely fail to hit 100% SoC').
-      4. Comment on critical loads (AC cooking vs DC fans).
-      5. Calculate real-world autonomy based on the daily net Wh/Ah.
-      6. Mention inverter overhead/efficiency if AC loads are high.
-      7. Be concise but engineering-rigorous.`,
+      3. Suggest improvements.
+      
+      When the user asks for CABLE SIZING or WIRE GAUGE:
+      1. Analyze [SYSTEM STATE CONTEXT] loads row by row.
+      2. For each load, calculate Amps (Watts / Bus Voltage).
+      3. Suggest AWG or mm² sizes based on typical 3% voltage drop standards for off-grid.
+      4. CATEGORY GUIDELINES:
+         - Main Battery Cables: Size for Max Inverter Burst + DC Bus.
+         - AC Loads: These run through Inverter; size the Inverter-to-Battery cable heavily (e.g., 0000 AWG for 3000W).
+         - Solar: Size for VOC and Imp with 1.25x safety factor for NEC compliance.
+         - DC Loads: Size individual branch circuits (e.g. 10AWG for high-power DC A/C).
+      5. Include Fuse/Breaker recommendations for each major circuit.
+      6. Mention that actual sizing depends on cable length (distance).`,
       responseMimeType: "application/json",
       responseSchema: {
         type: Type.OBJECT,

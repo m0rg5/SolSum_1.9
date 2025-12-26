@@ -277,17 +277,18 @@ const ChatBot: React.FC<ChatBotProps> = ({
     }
 
     try {
-        // ENHANCEMENT: Inject system context if user asks for an audit or if it's the start of a conversation
+        // ENHANCEMENT: Inject system context if user asks for an audit or cable sizing
         let promptWithContext = textToSend;
-        const needsContext = textToSend.toLowerCase().match(/audit|status|check|system|health|capacity|life|can I|how long/);
+        const needsContext = textToSend.toLowerCase().match(/audit|status|check|system|health|capacity|life|can I|how long|cable|sizing|wire|gauge|fuse/);
         
         if (needsContext || messages.length <= 1) {
           const snapshot = `
 [SYSTEM STATE CONTEXT]
-Battery: ${totals.finalSoC.toFixed(0)}% SoC (${battery.capacityAh}Ah @ ${battery.voltage}V)
+Bus Voltage: ${battery.voltage}V
+Battery: ${totals.finalSoC.toFixed(0)}% SoC (${battery.capacityAh}Ah)
 Net Change: ${totals.netWh.toFixed(0)}Wh / ${totals.netAh.toFixed(1)}Ah per day
-Loads (${items.length}): ${items.map(i => `${i.name} (${i.watts}W x ${i.hours}h)`).join(', ')}
-Charging (${charging.length}): ${charging.map(c => `${c.name} (${c.input}${c.unit} x ${c.hours}h)`).join(', ')}
+Loads (${items.length}): ${items.map(i => `${i.name} [${i.category}] (${i.watts}W)`).join(', ')}
+Charging (${charging.length}): ${charging.map(c => `${c.name} (${c.input}${c.unit})`).join(', ')}
 `;
           promptWithContext = `${snapshot}\n\nUser Question: ${textToSend}`;
         }

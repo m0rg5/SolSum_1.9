@@ -134,10 +134,25 @@ const EnergyTable: React.FC<EnergyTableProps> = ({
             const isHighlighted = highlightedId === item.id;
             
             return (
-              <tr key={item.id} className={`border-b border-slate-800 hover:bg-slate-800/40 transition-all duration-700 group ${draggedId === item.id ? 'opacity-50 bg-slate-800' : ''} ${managementItem ? 'bg-slate-900/40' : ''} ${isHighlighted ? 'bg-purple-900/40 border-purple-500/50 shadow-[inset_0_0_20px_rgba(168,85,247,0.1)] ring-1 ring-purple-500/30' : ''}`} draggable
-                onDragStart={(e) => { setDraggedId(item.id); e.dataTransfer.setData("text/plain", item.id); }} onDragEnd={() => setDraggedId(null)} onDragOver={(e) => e.preventDefault()}
-                onDrop={(e) => { e.preventDefault(); if (draggedId && draggedId !== item.id) onReorder(draggedId, item.id); }}>
-                <td className="pl-2 pr-0 py-1 w-6 text-center cursor-move text-slate-700 hover:text-slate-400">⋮⋮</td>
+              <tr key={item.id} className={`border-b border-slate-800 hover:bg-slate-800/40 transition-all duration-700 group ${draggedId === item.id ? 'opacity-20 scale-[0.98]' : ''} ${managementItem ? 'bg-slate-900/40' : ''} ${isHighlighted ? 'bg-purple-900/40 border-purple-500/50 shadow-[inset_0_0_20px_rgba(168,85,247,0.1)] ring-1 ring-purple-500/30' : ''}`} draggable
+                onDragStart={(e) => { 
+                  setDraggedId(item.id); 
+                  e.dataTransfer.effectAllowed = 'move';
+                  e.dataTransfer.setData("text/plain", item.id); 
+                }} 
+                onDragEnd={() => setDraggedId(null)} 
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  e.dataTransfer.dropEffect = 'move';
+                }}
+                onDragEnter={(e) => {
+                  e.preventDefault();
+                  if (draggedId && draggedId !== item.id) {
+                    onReorder(draggedId, item.id);
+                  }
+                }}
+              >
+                <td className="pl-2 pr-0 py-1 w-6 text-center cursor-move text-slate-700 group-hover:text-slate-400 select-none">⋮⋮</td>
                 <td className="px-2 py-1 whitespace-nowrap min-w-[180px]">
                   <input type="text" value={item.name} onChange={(e) => onUpdateItem(item.id, 'name', e.target.value)} onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
                     className={`bg-transparent border-b border-transparent hover:border-slate-600 focus:border-blue-500 w-full text-slate-200 transition-colors text-[12px] font-medium outline-none ${managementItem ? 'italic' : ''}`}/>

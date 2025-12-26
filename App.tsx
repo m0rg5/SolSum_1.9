@@ -160,6 +160,18 @@ const App: React.FC = () => {
     }]);
   }, []);
 
+  const handleReorderItems = useCallback((fromId: string, toId: string) => {
+    setItems(prev => {
+      const fromIndex = prev.findIndex(i => i.id === fromId);
+      const toIndex = prev.findIndex(i => i.id === toId);
+      if (fromIndex === -1 || toIndex === -1) return prev;
+      const newItems = [...prev];
+      const [movedItem] = newItems.splice(fromIndex, 1);
+      newItems.splice(toIndex, 0, movedItem);
+      return newItems;
+    });
+  }, []);
+
   const handleAIAddLoad = useCallback((itemProps: Omit<PowerItem, 'id'>) => {
     const id = Math.random().toString(36).substr(2, 9);
     setItems(prev => [...prev, { id, quantity: 1, ...itemProps, category: itemProps.category as LoadCategory }]);
@@ -176,6 +188,18 @@ const App: React.FC = () => {
 
   const handleUpdateSource = useCallback((id: string, field: keyof ChargingSource, value: any) => {
     setCharging(prev => prev.map(s => s.id === id ? { ...s, [field]: value } : s));
+  }, []);
+
+  const handleReorderSources = useCallback((fromId: string, toId: string) => {
+    setCharging(prev => {
+      const fromIndex = prev.findIndex(i => i.id === fromId);
+      const toIndex = prev.findIndex(i => i.id === toId);
+      if (fromIndex === -1 || toIndex === -1) return prev;
+      const newSources = [...prev];
+      const [movedSource] = newSources.splice(fromIndex, 1);
+      newSources.splice(toIndex, 0, movedSource);
+      return newSources;
+    });
   }, []);
 
   const handleUpdateBattery = useCallback((field: keyof BatteryConfig, value: any) => {
@@ -305,7 +329,7 @@ const App: React.FC = () => {
               onAddSource={() => setCharging(p => [...p, { id: Math.random().toString(36).substr(2, 9), name: 'New Source', quantity: 1, input: 0, unit: 'W', efficiency: 0.9, type: 'solar', hours: 5, autoSolar: false }])}
               onAIAddSource={() => { setChatMode('source'); setChatOpen(true); }}
               onUpdateBattery={handleUpdateBattery}
-              onReorder={() => {}} onSort={() => {}}
+              onReorder={handleReorderSources} onSort={() => {}}
             />
           </section>
 
@@ -317,7 +341,7 @@ const App: React.FC = () => {
               onUpdateItem={handleUpdateItem} onDeleteItem={handleDeleteItem}
               onAddItem={handleAddItem} onAIAddItem={() => { setChatMode('load'); setChatOpen(true); }}
               visibleCategories={[LoadCategory.SYSTEM_MGMT]}
-              onReorder={() => {}} onSort={() => {}}
+              onReorder={handleReorderItems} onSort={() => {}}
             />
           </section>
 
@@ -329,7 +353,7 @@ const App: React.FC = () => {
               onUpdateItem={handleUpdateItem} onDeleteItem={handleDeleteItem}
               onAddItem={handleAddItem} onAIAddItem={() => { setChatMode('load'); setChatOpen(true); }}
               visibleCategories={[LoadCategory.AC_LOADS]}
-              onReorder={() => {}} onSort={() => {}}
+              onReorder={handleReorderItems} onSort={() => {}}
             />
           </section>
 
@@ -341,7 +365,7 @@ const App: React.FC = () => {
               onUpdateItem={handleUpdateItem} onDeleteItem={handleDeleteItem}
               onAddItem={handleAddItem} onAIAddItem={() => { setChatMode('load'); setChatOpen(true); }}
               visibleCategories={[LoadCategory.DC_LOADS]}
-              onReorder={() => {}} onSort={() => {}}
+              onReorder={handleReorderItems} onSort={() => {}}
             />
           </section>
         </div>

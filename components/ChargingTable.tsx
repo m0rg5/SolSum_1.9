@@ -151,11 +151,26 @@ const ChargingTable: React.FC<ChargingTableProps> = ({
             const isAutoErr = source.autoSolar && (norm.status === 'invalid' || norm.status === 'nodata');
               
             return (
-              <tr key={source.id} className={`hover:bg-slate-800/40 transition-all duration-700 group ${draggedId === source.id ? 'opacity-50 bg-slate-800' : ''} ${managementItem ? 'bg-slate-900/40 opacity-60' : ''} ${isHighlighted ? 'bg-purple-900/40 border-purple-500/50 shadow-[inset_0_0_20px_rgba(168,85,247,0.1)] ring-1 ring-purple-500/30' : ''}`}
-                draggable onDragStart={(e) => { setDraggedId(source.id); e.dataTransfer.setData("text/plain", source.id); }}
-                onDragEnd={() => setDraggedId(null)} onDragOver={(e) => e.preventDefault()}
-                onDrop={(e) => { e.preventDefault(); if (draggedId && draggedId !== source.id) onReorder(draggedId, source.id); }}>
-                <td className="pl-2 pr-0 py-1 w-6 text-center cursor-move text-slate-700 hover:text-slate-400">⋮⋮</td>
+              <tr key={source.id} className={`hover:bg-slate-800/40 transition-all duration-700 group ${draggedId === source.id ? 'opacity-20 scale-[0.98]' : ''} ${managementItem ? 'bg-slate-900/40 opacity-60' : ''} ${isHighlighted ? 'bg-purple-900/40 border-purple-500/50 shadow-[inset_0_0_20px_rgba(168,85,247,0.1)] ring-1 ring-purple-500/30' : ''}`}
+                draggable 
+                onDragStart={(e) => { 
+                  setDraggedId(source.id); 
+                  e.dataTransfer.effectAllowed = 'move';
+                  e.dataTransfer.setData("text/plain", source.id); 
+                }}
+                onDragEnd={() => setDraggedId(null)} 
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  e.dataTransfer.dropEffect = 'move';
+                }}
+                onDragEnter={(e) => {
+                  e.preventDefault();
+                  if (draggedId && draggedId !== source.id) {
+                    onReorder(draggedId, source.id);
+                  }
+                }}
+              >
+                <td className="pl-2 pr-0 py-1 w-6 text-center cursor-move text-slate-700 group-hover:text-slate-400 select-none">⋮⋮</td>
                 <td className="px-2 py-1 whitespace-nowrap">
                   <input type="text" value={source.name} onChange={(e) => onUpdateSource(source.id, 'name', e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
