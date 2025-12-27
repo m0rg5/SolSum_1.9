@@ -23,6 +23,7 @@ const App: React.FC = () => {
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
+        // Schema version check can be added here if destructive changes occur
         if (parsed.data) return parsed.data;
       }
     } catch (e) {
@@ -33,7 +34,7 @@ const App: React.FC = () => {
 
   const savedData = useMemo(() => getSavedData(), []);
 
-  // Persistence: Load
+  // Persistence: Load (Atomic Initializers)
   const [items, setItems] = useState<PowerItem[]>(() => savedData?.items || INITIAL_DATA);
   const [charging, setCharging] = useState<ChargingSource[]>(() => savedData?.charging || INITIAL_CHARGING);
   const [battery, setBattery] = useState<BatteryConfig>(() => {
@@ -45,40 +46,49 @@ const App: React.FC = () => {
     };
 
     // Deep merge to ensure new system keys (like forecastMode) are present even in old saves
-    const base = {
+    const merged = {
       ...INITIAL_BATTERY,
       forecastMode: 'now' as const,
       forecastMonth: `${new Date().getFullYear()}-${(new Date().getMonth() + 1).toString().padStart(2, '0')}`,
       ...savedBat
     };
 
-    if (base.forecast) {
-      base.forecast.loading = false;
-      const updatedAt = base.forecast.updatedAt ? new Date(base.forecast.updatedAt).getTime() : 0;
+    if (merged.forecast) {
+      merged.forecast.loading = false;
+      const updatedAt = merged.forecast.updatedAt ? new Date(merged.forecast.updatedAt).getTime() : 0;
       const isFresh = (Date.now() - updatedAt) < FORECAST_TTL_MS;
-      base.forecast.fetched = isFresh ? (base.forecast.fetched || false) : false;
+      merged.forecast.fetched = isFresh ? (merged.forecast.fetched || false) : false;
     }
-    return base;
+    return merged;
   });
   
   const [chatOpen, setChatOpen] = useState(false);
   const [chatMode, setChatMode] = useState<ChatMode>('general');
   const [highlightedRow, setHighlightedRow] = useState<{ id: string, kind: 'load' | 'source' } | null>(null);
 
-  // Persistence: Mark Hydration Complete
+  // Persistence Step 1: Mark Hydration Complete AFTER first paint
   useEffect(() => {
-    setHasHydrated(true);
+    // Small timeout ensures all state initializers have settled
+    const timer = setTimeout(() => setHasHydrated(true), 100);
+    return () => clearTimeout(timer);
   }, []);
 
-  // Persistence: Save Trigger
+  // Persistence Step 2: Save Trigger (Gated by hasHydrated)
   useEffect(() => {
-    if (!hasHydrated) return; // Prevent overwriting storage with defaults during first render
+    if (!hasHydrated) return;
 
     const state = {
       version: STORAGE_SCHEMA_VERSION,
       savedAt: Date.now(),
       data: { items, charging, battery }
     };
+    
+    // Safety check: Don't save if state appears to be empty/corrupt during boot
+    if (items.length === 0 && charging.length === 0) {
+      console.warn("Blocking save: System state appears empty during sync.");
+      return;
+    }
+
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   }, [items, charging, battery, hasHydrated]);
 
@@ -305,7 +315,7 @@ const App: React.FC = () => {
                 <button onClick={handleExport} className="flex-1 bg-slate-800 hover:bg-slate-700 rounded-lg border border-slate-700 transition-colors flex items-center justify-center group" title="Export JSON">
                   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-3 h-3 text-slate-400 group-hover:text-blue-400 transition-colors"><path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" /></svg>
                 </button>
-                <button onClick={handleTriggerImport} className="flex-1 bg-slate-800 hover:bg-slate-700 rounded-lg border border-slate-700 transition-colors flex items-center justify-center group" title="Import JSON">
+                <button onClick={handleTriggerImport} className="flex-1 bg-slate-800 hover:bg-slate-700 rounded-lg border border-slate-800 transition-colors flex items-center justify-center group" title="Import JSON">
                   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-3 h-3 text-slate-400 group-hover:text-emerald-400 transition-colors"><path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" /></svg>
                   <input type="file" ref={fileInputRef} accept=".json" onChange={handleImport} className="hidden" />
                 </button>

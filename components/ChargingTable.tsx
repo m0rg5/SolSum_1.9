@@ -102,8 +102,8 @@ const ChargingTable: React.FC<ChargingTableProps> = ({
       if (key === 'dailyWh') {
         const hA = getEffectiveSolarHours(a, battery);
         const hB = getEffectiveSolarHours(b, battery);
-        valA = a.unit === 'W' ? (a.input * hA * a.efficiency * a.quantity) : (a.input * battery.voltage * hA * a.efficiency * a.quantity);
-        valB = b.unit === 'W' ? (b.input * hB * b.efficiency * b.quantity) : (b.input * battery.voltage * hB * b.efficiency * b.quantity);
+        valA = a.unit === 'W' || !a.unit ? (a.input * hA * a.efficiency * a.quantity) : (a.input * battery.voltage * hA * a.efficiency * a.quantity);
+        valB = b.unit === 'W' || !b.unit ? (b.input * hB * b.efficiency * b.quantity) : (b.input * battery.voltage * hB * b.efficiency * b.quantity);
       }
 
       if (typeof valA === 'string') return dir === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
@@ -143,7 +143,8 @@ const ChargingTable: React.FC<ChargingTableProps> = ({
             const inputVal = Number(source.input) || 0;
             const systemV = Number(battery.voltage) || 24;
             const qty = Number(source.quantity) || 1;
-            const dailyWh = managementItem ? 0 : (source.unit === 'W' ? (inputVal * rawEffectiveHours * efficiency * qty) : (inputVal * systemV * rawEffectiveHours * efficiency * qty));
+            // Force logic to treat unit as 'W'
+            const dailyWh = managementItem ? 0 : (inputVal * rawEffectiveHours * efficiency * qty);
             const isHighlighted = highlightedId === source.id;
             
             // Unified "AUTO ERR" logic using shared normalization result
@@ -230,7 +231,7 @@ const ChargingTable: React.FC<ChargingTableProps> = ({
                 </td>
                 <td className="px-2 py-1 text-center w-8">
                   <button onClick={() => onDeleteSource(source.id)} className="text-slate-400 hover:text-red-400 opacity-60 hover:opacity-100 transition-all p-0.5 group/del">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-3 h-3 group-hover/del:scale-110 transition-transform"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-4 h-4 group-hover/del:scale-110 transition-transform"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
                   </button>
                 </td>
               </tr>
