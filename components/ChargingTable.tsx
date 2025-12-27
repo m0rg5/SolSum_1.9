@@ -183,16 +183,9 @@ const ChargingTable: React.FC<ChargingTableProps> = ({
                 </td>
                 <td className="px-1 py-1 text-right">
                   {!managementItem ? (
-                    <div className="inline-flex items-center justify-end w-[42px] bg-slate-850 border border-slate-700 rounded px-1 py-0.5 focus-within:border-blue-500 transition-colors">
+                    <div className="inline-flex items-center justify-end w-[38px] bg-slate-850 border border-slate-700 rounded px-1 py-0.5 focus-within:border-blue-500 transition-colors">
                       <NumberInput value={source.input} onChange={(val) => onUpdateSource(source.id, 'input', val)} />
-                      <select 
-                        value={source.unit} 
-                        onChange={(e) => onUpdateSource(source.id, 'unit', e.target.value)}
-                        className="bg-transparent text-[7px] text-slate-500 font-black uppercase outline-none cursor-pointer hover:text-blue-400"
-                      >
-                        <option value="W">W</option>
-                        <option value="A">A</option>
-                      </select>
+                      <span className="text-[7px] text-slate-500 font-black uppercase shrink-0 pr-0.5">W</span>
                     </div>
                   ) : (
                     <span className="text-slate-600 italic text-[10px]">Internal</span>
