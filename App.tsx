@@ -241,15 +241,6 @@ const App: React.FC = () => {
     e.target.value = '';
   };
 
-  const formatMonthShort = (isoMonth: string) => {
-    if (!isoMonth) return '';
-    const [year, month] = isoMonth.split('-');
-    const date = new Date(parseInt(year), parseInt(month) - 1);
-    const monthStr = date.toLocaleString('default', { month: 'short' });
-    const shortYear = year.slice(-2);
-    return `${monthStr} ${shortYear}`;
-  };
-
   const netKwh = totals.netWh / 1000;
   
   return (
@@ -286,19 +277,22 @@ const App: React.FC = () => {
               </div>
 
               <div className="flex-1 min-w-[70px] bg-slate-900 p-[7px] rounded-lg border border-slate-800 ring-1 ring-white/5 shadow-inner relative flex flex-col justify-center">
-                <div className="flex justify-between items-center mb-0.5">
+                <div className="flex justify-between items-center mb-0.5 relative z-20">
                   <label className="config-label-small uppercase text-slate-600 font-black tracking-widest">MTH</label>
-                  <label className="flex items-center gap-1 cursor-pointer group">
-                    <span className="text-[6px] font-black text-slate-600 uppercase group-hover:text-blue-400 transition-colors">Now</span>
-                    <input type="checkbox" checked={battery.forecastMode === 'now'} onChange={(e) => handleUpdateBattery('forecastMode', e.target.checked ? 'now' : 'monthAvg')} className="w-2.5 h-2.5 rounded bg-slate-800 border-slate-700 text-blue-600" />
+                  <label className="flex items-center gap-1 cursor-pointer group" title="Toggle Real-time Forecast">
+                    <span className={`text-[6px] font-black uppercase transition-colors ${battery.forecastMode === 'now' ? 'text-blue-400' : 'text-slate-600 group-hover:text-slate-400'}`}>Now</span>
+                    <input type="checkbox" checked={battery.forecastMode === 'now'} onChange={(e) => handleUpdateBattery('forecastMode', e.target.checked ? 'now' : 'monthAvg')} className="w-2.5 h-2.5 rounded bg-slate-800 border-slate-700 text-blue-600 focus:ring-0 cursor-pointer" />
                   </label>
                 </div>
-                <div className="relative group/mth flex items-center h-4">
-                  <input type="month" disabled={battery.forecastMode === 'now'} value={battery.forecastMonth || ''} onChange={(e) => handleUpdateBattery('forecastMonth', e.target.value)} className="absolute inset-0 opacity-0 cursor-pointer z-10 disabled:cursor-not-allowed w-full" />
-                  <div className={`text-slate-200 font-mono config-input-small font-black ${battery.forecastMode === 'now' ? 'opacity-30' : ''}`}>
-                    {battery.forecastMode === 'now' ? formatMonthShort(new Date().toISOString().slice(0, 7)) : formatMonthShort(battery.forecastMonth || '')}
-                  </div>
-                </div>
+                <input 
+                  type="month" 
+                  value={battery.forecastMonth || ''} 
+                  onChange={(e) => {
+                    handleUpdateBattery('forecastMonth', e.target.value);
+                    if (battery.forecastMode === 'now') handleUpdateBattery('forecastMode', 'monthAvg');
+                  }}
+                  className={`bg-transparent border-none w-full text-slate-200 font-mono text-[0.8rem] h-[1.1rem] focus:ring-0 font-black outline-none p-0 cursor-pointer ${battery.forecastMode === 'now' ? 'opacity-50' : ''}`}
+                />
               </div>
 
               <div className="flex-1 min-w-[70px] bg-slate-900 p-[7px] rounded-lg border border-slate-800 ring-1 ring-white/5 shadow-inner flex flex-col justify-center">
