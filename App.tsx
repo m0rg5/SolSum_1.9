@@ -23,7 +23,6 @@ const App: React.FC = () => {
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
-        // Schema version check can be added here if destructive changes occur
         if (parsed.data) return parsed.data;
       }
     } catch (e) {
@@ -38,20 +37,28 @@ const App: React.FC = () => {
   const [items, setItems] = useState<PowerItem[]>(() => savedData?.items || INITIAL_DATA);
   const [charging, setCharging] = useState<ChargingSource[]>(() => savedData?.charging || INITIAL_CHARGING);
   const [battery, setBattery] = useState<BatteryConfig>(() => {
+    const now = new Date();
+    const defaultMonth = `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}-${now.getDate().toString().padStart(2, '0')}`;
+    
     const savedBat = savedData?.battery;
     if (!savedBat) return { 
       ...INITIAL_BATTERY, 
       forecastMode: 'now',
-      forecastMonth: `${new Date().getFullYear()}-${(new Date().getMonth() + 1).toString().padStart(2, '0')}`
+      forecastMonth: defaultMonth
     };
 
     // Deep merge to ensure new system keys (like forecastMode) are present even in old saves
     const merged = {
       ...INITIAL_BATTERY,
       forecastMode: 'now' as const,
-      forecastMonth: `${new Date().getFullYear()}-${(new Date().getMonth() + 1).toString().padStart(2, '0')}`,
+      forecastMonth: defaultMonth,
       ...savedBat
     };
+
+    // Ensure legacy YYYY-MM converts to YYYY-MM-DD
+    if (merged.forecastMonth && merged.forecastMonth.split('-').length === 2) {
+      merged.forecastMonth = `${merged.forecastMonth}-15`;
+    }
 
     if (merged.forecast) {
       merged.forecast.loading = false;
@@ -68,7 +75,6 @@ const App: React.FC = () => {
 
   // Persistence Step 1: Mark Hydration Complete AFTER first paint
   useEffect(() => {
-    // Small timeout ensures all state initializers have settled
     const timer = setTimeout(() => setHasHydrated(true), 100);
     return () => clearTimeout(timer);
   }, []);
@@ -83,7 +89,6 @@ const App: React.FC = () => {
       data: { items, charging, battery }
     };
     
-    // Safety check: Don't save if state appears to be empty/corrupt during boot
     if (items.length === 0 && charging.length === 0) {
       console.warn("Blocking save: System state appears empty during sync.");
       return;
@@ -113,7 +118,8 @@ const App: React.FC = () => {
           const nowPSH = await fetchNowSolarPSH(geo.lat, geo.lon);
           forecastData = { nowHours: nowPSH };
         } else {
-          const monthPSH = await fetchMonthAvgSolarPSH(geo.lat, geo.lon, battery.forecastMonth);
+          const apiMonth = (battery.forecastMonth || '').split('-').slice(0, 2).join('-');
+          const monthPSH = await fetchMonthAvgSolarPSH(geo.lat, geo.lon, apiMonth);
           forecastData = { sunnyHours: monthPSH.sunny, cloudyHours: monthPSH.cloudy };
         }
         setBattery(prev => ({ 
@@ -241,15 +247,6 @@ const App: React.FC = () => {
     e.target.value = '';
   };
 
-  const formatMonthShort = (isoMonth: string) => {
-    if (!isoMonth) return '';
-    const [year, month] = isoMonth.split('-');
-    const date = new Date(parseInt(year), parseInt(month) - 1);
-    const monthStr = date.toLocaleString('default', { month: 'short' });
-    const shortYear = year.slice(-2);
-    return `${monthStr} ${shortYear}`;
-  };
-
   const netKwh = totals.netWh / 1000;
   
   return (
@@ -285,36 +282,80 @@ const App: React.FC = () => {
                 <input type="text" value={battery.location || ''} onChange={(e) => handleUpdateBattery('location', e.target.value)} placeholder="e.g. 2048" className="bg-transparent border-none w-full text-slate-200 font-mono config-input-small focus:ring-0 font-black outline-none p-0" />
               </div>
 
-              <div className="flex-1 min-w-[70px] bg-slate-900 p-[7px] rounded-lg border border-slate-800 ring-1 ring-white/5 shadow-inner relative flex flex-col justify-center">
+              {/* DATE SELECTOR (MANUAL MM/YY) */}
+              <div className="flex-1 min-w-[90px] bg-slate-900 p-[7px] rounded-lg border border-slate-800 ring-1 ring-white/5 shadow-inner flex flex-col justify-center relative group">
                 <div className="flex justify-between items-center mb-0.5 relative z-20">
-                  <label className="config-label-small uppercase text-slate-600 font-black tracking-widest">MTH</label>
-                  <label className="flex items-center gap-1 cursor-pointer group" title="Toggle Real-time Forecast">
-                    <span className={`text-[6px] font-black uppercase transition-colors ${battery.forecastMode === 'now' ? 'text-blue-400' : 'text-slate-600 group-hover:text-slate-400'}`}>Now</span>
-                    <input type="checkbox" checked={battery.forecastMode === 'now'} onChange={(e) => handleUpdateBattery('forecastMode', e.target.checked ? 'now' : 'monthAvg')} className="w-2.5 h-2.5 rounded bg-slate-800 border-slate-700 text-blue-600 focus:ring-0 cursor-pointer" />
+                  <label className="config-label-small uppercase text-slate-600 font-black tracking-widest">DATE (MM/YY)</label>
+                  <label 
+                    className="flex items-center gap-1 cursor-pointer group/toggle" 
+                    title="Toggle Real-time Forecast"
+                  >
+                    <span className={`text-[6px] font-black uppercase transition-colors ${battery.forecastMode === 'now' ? 'text-blue-400' : 'text-slate-600 group-hover/toggle:text-slate-400'}`}>Now</span>
+                    <input 
+                      type="checkbox" 
+                      checked={battery.forecastMode === 'now'} 
+                      onChange={(e) => handleUpdateBattery('forecastMode', e.target.checked ? 'now' : 'monthAvg')} 
+                      className="w-2.5 h-2.5 rounded bg-slate-800 border-slate-700 text-blue-600 focus:ring-0 cursor-pointer" 
+                    />
                   </label>
                 </div>
-                {/* INVISIBLE OVERLAY PATTERN: Full Container Click Target */}
-                <div className="relative group/mth flex items-center h-6 w-full cursor-pointer">
-                  <input 
-                    type="month" 
-                    value={battery.forecastMonth || ''} 
-                    onClick={(e) => {
-                      try {
-                        if ('showPicker' in HTMLInputElement.prototype) {
-                          e.currentTarget.showPicker();
+                
+                <div className={`flex items-center gap-1 h-6 w-full ${battery.forecastMode === 'now' ? 'opacity-30 pointer-events-none' : 'opacity-100'} transition-opacity`}>
+                   <input 
+                     type="text" 
+                     placeholder="MM"
+                     maxLength={2}
+                     value={battery.forecastMonth?.split('-')[1] || ''}
+                     onChange={(e) => {
+                       const val = e.target.value.replace(/\D/g, '');
+                       if (val.length <= 2) {
+                          const cur = battery.forecastMonth || `${new Date().getFullYear()}-01-01`;
+                          const parts = cur.split('-');
+                          const y = parts[0] || new Date().getFullYear();
+                          const d = parts[2] || '01';
+                          handleUpdateBattery('forecastMonth', `${y}-${val}-${d}`);
+                       }
+                     }}
+                     onBlur={(e) => {
+                       let val = e.target.value;
+                       if (val.length === 1) val = '0' + val;
+                       if (val === '00' || val === '') val = '01';
+                       if (Number(val) > 12) val = '12';
+                       
+                       const cur = battery.forecastMonth || `${new Date().getFullYear()}-01-01`;
+                       const parts = cur.split('-');
+                       handleUpdateBattery('forecastMonth', `${parts[0]}-${val}-${parts[2] || '01'}`);
+                     }}
+                     className="bg-transparent text-slate-200 font-mono config-input-small font-black w-[24px] text-center focus:outline-none focus:text-blue-400 placeholder-slate-700 p-0"
+                   />
+                   <span className="text-slate-600 font-black select-none">/</span>
+                   <input 
+                     type="text" 
+                     placeholder="YY"
+                     maxLength={2}
+                     value={battery.forecastMonth?.split('-')[0].slice(2) || ''}
+                     onChange={(e) => {
+                        const val = e.target.value.replace(/\D/g, '');
+                        if (val.length <= 2) {
+                           const cur = battery.forecastMonth || `${new Date().getFullYear()}-01-01`;
+                           const parts = cur.split('-');
+                           const m = parts[1] || '01';
+                           const d = parts[2] || '01';
+                           handleUpdateBattery('forecastMonth', `20${val}-${m}-${d}`);
                         }
-                      } catch (err) {}
-                    }}
-                    onChange={(e) => {
-                      handleUpdateBattery('forecastMonth', e.target.value);
-                      if (battery.forecastMode === 'now') handleUpdateBattery('forecastMode', 'monthAvg');
-                    }}
-                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20" 
-                  />
-                  <div className={`text-slate-200 font-mono config-input-small font-black truncate w-full flex items-center gap-2 ${battery.forecastMode === 'now' ? 'opacity-50' : ''} ${battery.forecast?.loading ? 'animate-pulse text-blue-300' : ''}`}>
-                    {formatMonthShort(battery.forecastMonth || '')}
-                    {battery.forecast?.loading && <div className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-bounce"></div>}
-                  </div>
+                     }}
+                     onBlur={(e) => {
+                        let val = e.target.value;
+                        if (val.length === 1) val = '0' + val;
+                        if (val === '') val = new Date().getFullYear().toString().slice(2);
+
+                        const cur = battery.forecastMonth || `${new Date().getFullYear()}-01-01`;
+                        const parts = cur.split('-');
+                        handleUpdateBattery('forecastMonth', `20${val}-${parts[1] || '01'}-${parts[2] || '01'}`);
+                     }}
+                     className="bg-transparent text-slate-200 font-mono config-input-small font-black w-[24px] text-center focus:outline-none focus:text-blue-400 placeholder-slate-700 p-0"
+                   />
+                    {battery.forecast?.loading && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-blue-400 animate-bounce"></div>}
                 </div>
               </div>
 
