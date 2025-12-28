@@ -302,6 +302,15 @@ const App: React.FC = () => {
               </div>
 
               <div className="flex-1 min-w-[70px] bg-slate-900 p-[7px] rounded-lg border border-slate-800 ring-1 ring-white/5 shadow-inner flex flex-col justify-center">
+                <label className="config-label-small uppercase text-slate-600 font-black block mb-0.5 tracking-widest">VOLTAGE</label>
+                <select value={battery.voltage} onChange={(e) => handleUpdateBattery('voltage', Number(e.target.value))} className="bg-transparent border-none w-full text-slate-200 font-mono config-input-small focus:ring-0 font-black outline-none p-0 cursor-pointer">
+                  <option value={12} className="bg-slate-900 text-slate-200">12V</option>
+                  <option value={24} className="bg-slate-900 text-slate-200">24V</option>
+                  <option value={48} className="bg-slate-900 text-slate-200">48V</option>
+                </select>
+              </div>
+
+              <div className="flex-1 min-w-[70px] bg-slate-900 p-[7px] rounded-lg border border-slate-800 ring-1 ring-white/5 shadow-inner flex flex-col justify-center">
                 <label className="config-label-small uppercase text-slate-600 font-black block mb-0.5 tracking-widest">BATTERY AH</label>
                 <input type="number" value={battery.capacityAh} onChange={(e) => handleUpdateBattery('capacityAh', Number(e.target.value))} className="bg-transparent border-none w-full text-slate-200 font-mono config-input-small focus:ring-0 font-black outline-none p-0" />
               </div>
