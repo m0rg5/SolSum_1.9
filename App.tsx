@@ -34,8 +34,16 @@ const App: React.FC = () => {
   const savedData = useMemo(() => getSavedData(), []);
 
   // Persistence: Load (Atomic Initializers)
-  const [items, setItems] = useState<PowerItem[]>(() => savedData?.items || INITIAL_DATA);
-  const [charging, setCharging] = useState<ChargingSource[]>(() => savedData?.charging || INITIAL_CHARGING);
+  const [items, setItems] = useState<PowerItem[]>(() => {
+    const data = savedData?.items || INITIAL_DATA;
+    return data.map((i: PowerItem) => ({ ...i, enabled: i.enabled ?? true }));
+  });
+
+  const [charging, setCharging] = useState<ChargingSource[]>(() => {
+    const data = savedData?.charging || INITIAL_CHARGING;
+    return data.map((c: ChargingSource) => ({ ...c, enabled: c.enabled ?? true }));
+  });
+
   const [battery, setBattery] = useState<BatteryConfig>(() => {
     const now = new Date();
     const defaultMonth = `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}-${now.getDate().toString().padStart(2, '0')}`;
@@ -166,7 +174,8 @@ const App: React.FC = () => {
       watts: 0,
       hours: 1,
       dutyCycle: 100,
-      notes: ''
+      notes: '',
+      enabled: true
     }]);
   }, []);
 
@@ -184,14 +193,14 @@ const App: React.FC = () => {
 
   const handleAIAddLoad = useCallback((itemProps: Omit<PowerItem, 'id'>) => {
     const id = Math.random().toString(36).substr(2, 9);
-    setItems(prev => [...prev, { id, quantity: 1, ...itemProps, category: itemProps.category as LoadCategory }]);
+    setItems(prev => [...prev, { id, quantity: 1, ...itemProps, category: itemProps.category as LoadCategory, enabled: true }]);
     setHighlightedRow({ id, kind: 'load' });
     setTimeout(() => setHighlightedRow(null), 2500);
   }, []);
 
   const handleAIAddSource = useCallback((sourceProps: Omit<ChargingSource, 'id'>) => {
     const id = Math.random().toString(36).substr(2, 9);
-    setCharging(prev => [...prev, { id, quantity: 1, ...sourceProps }]);
+    setCharging(prev => [...prev, { id, quantity: 1, ...sourceProps, enabled: true }]);
     setHighlightedRow({ id, kind: 'source' });
     setTimeout(() => setHighlightedRow(null), 2500);
   }, []);
@@ -237,8 +246,8 @@ const App: React.FC = () => {
     reader.onload = (event) => {
       try {
         const data = JSON.parse(event.target?.result as string);
-        if (data.items) setItems(data.items);
-        if (data.charging) setCharging(data.charging);
+        if (data.items) setItems(data.items.map((i: any) => ({ ...i, enabled: i.enabled ?? true })));
+        if (data.charging) setCharging(data.charging.map((c: any) => ({ ...c, enabled: c.enabled ?? true })));
         if (data.battery) setBattery(data.battery);
         alert(`Config v${data.version || '?' } imported.`);
       } catch (err) { alert("Import failed."); }
@@ -397,7 +406,7 @@ const App: React.FC = () => {
               highlightedId={highlightedRow?.kind === 'source' ? highlightedRow.id : null}
               onUpdateSource={handleUpdateSource}
               onDeleteSource={(id) => setCharging(p => p.filter(s => s.id !== id))}
-              onAddSource={() => setCharging(p => [...p, { id: Math.random().toString(36).substr(2, 9), name: 'New Source', quantity: 1, input: 0, unit: 'W', efficiency: 0.9, type: 'solar', hours: 5, autoSolar: false }])}
+              onAddSource={() => setCharging(p => [...p, { id: Math.random().toString(36).substr(2, 9), name: 'New Source', quantity: 1, input: 0, unit: 'W', efficiency: 0.9, type: 'solar', hours: 5, autoSolar: false, enabled: true }])}
               onAIAddSource={() => { setChatMode('source'); setChatOpen(true); }}
               onUpdateBattery={handleUpdateBattery}
               onReorder={handleReorderSources} onSort={() => {}}

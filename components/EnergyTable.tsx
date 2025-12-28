@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { PowerItem, LoadCategory } from '../types';
 import { calculateItemEnergy } from '../services/powerLogic';
@@ -116,6 +117,7 @@ const EnergyTable: React.FC<EnergyTableProps> = ({
           <tr>
             <th className="w-6"></th>
             <SortHeader label="Item" sortKey="name" currentSort={sortState} onSort={handleSortChange} widthClass="min-w-[180px]" />
+            <th className="w-6 text-center">✓</th>
             <th className="px-1 py-2 text-center whitespace-nowrap w-[18px]">@</th>
             <SortHeader label="POWER (W)" sortKey="watts" currentSort={sortState} onSort={handleSortChange} className="text-right" widthClass="w-[42px]" />
             <SortHeader label="HRS/DAY" sortKey="hours" currentSort={sortState} onSort={handleSortChange} className="text-right" widthClass="w-[38px]" />
@@ -132,9 +134,10 @@ const EnergyTable: React.FC<EnergyTableProps> = ({
             const isSuspicious = ah > 100 && (item.dutyCycle === undefined || item.dutyCycle === 100);
             const managementItem = isMgmt(item);
             const isHighlighted = highlightedId === item.id;
+            const isDisabled = item.enabled === false;
             
             return (
-              <tr key={item.id} className={`border-b border-slate-800 hover:bg-slate-800/40 transition-all duration-700 group ${draggedId === item.id ? 'opacity-20 scale-[0.98]' : ''} ${managementItem ? 'bg-slate-900/40' : ''} ${isHighlighted ? 'bg-purple-900/40 border-purple-500/50 shadow-[inset_0_0_20px_rgba(168,85,247,0.1)] ring-1 ring-purple-500/30' : ''}`} draggable
+              <tr key={item.id} className={`border-b border-slate-800 hover:bg-slate-800/40 transition-all duration-700 group ${draggedId === item.id ? 'opacity-20 scale-[0.98]' : ''} ${managementItem ? 'bg-slate-900/40' : ''} ${isHighlighted ? 'bg-purple-900/40 border-purple-500/50 shadow-[inset_0_0_20px_rgba(168,85,247,0.1)] ring-1 ring-purple-500/30' : ''} ${isDisabled ? 'opacity-40 grayscale' : ''}`} draggable
                 onDragStart={(e) => { 
                   setDraggedId(item.id); 
                   e.dataTransfer.effectAllowed = 'move';
@@ -156,6 +159,9 @@ const EnergyTable: React.FC<EnergyTableProps> = ({
                 <td className="px-2 py-1 whitespace-nowrap min-w-[180px]">
                   <input type="text" value={item.name} onChange={(e) => onUpdateItem(item.id, 'name', e.target.value)} onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
                     className={`bg-transparent border-b border-transparent hover:border-slate-600 focus:border-blue-500 w-full text-slate-200 transition-colors text-[12px] font-medium outline-none ${managementItem ? 'italic' : ''}`}/>
+                </td>
+                <td className="text-center w-6">
+                    <input type="checkbox" checked={item.enabled !== false} onChange={(e) => onUpdateItem(item.id, 'enabled', e.target.checked)} className="rounded border-slate-700 bg-slate-800/50 text-blue-500 focus:ring-0 w-3 h-3 cursor-pointer" />
                 </td>
                 <td className="px-1 py-1 text-right">
                   {showQtyInput ? (
@@ -205,7 +211,7 @@ const EnergyTable: React.FC<EnergyTableProps> = ({
         </tbody>
         <tfoot>
           <tr>
-            <td colSpan={10} className="px-2 py-1"><div className="flex gap-1.5">
+            <td colSpan={11} className="px-2 py-1"><div className="flex gap-1.5">
               <button onClick={() => onAddItem(visibleCategories[0])} className="w-[10%] flex-none flex items-center justify-center gap-2 py-1 border border-dashed border-slate-700 rounded hover:bg-slate-800 text-slate-500 text-sm font-medium transition-all">+</button>
               <button onClick={() => onAIAddItem(visibleCategories[0])} className="flex-1 flex items-center justify-center gap-2 py-1 border border-dashed border-blue-900/50 bg-blue-950/20 rounded hover:bg-blue-900/40 text-blue-400/80 text-[8px] font-black uppercase tracking-widest transition-all">✨ Spec Asst.</button>
             </div></td>

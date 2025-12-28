@@ -1,3 +1,4 @@
+
 import { PowerItem, LoadCategory, ChargingSource, BatteryConfig, SystemTotals } from '../types';
 
 export const getInverterEfficiency = (watts: number): number => {
@@ -106,12 +107,14 @@ export const calculateSystemTotals = (
   let dailyWhConsumed = 0;
 
   items.forEach(item => {
+    if (item.enabled === false) return;
     const { wh } = calculateItemEnergy(item, systemVoltage);
     dailyWhConsumed += (Number(wh) || 0);
   });
 
   let dailyWhGenerated = 0;
   charging.forEach(source => {
+    if (source.enabled === false) return;
     const hours = source.type === 'solar' 
       ? getEffectiveSolarHours(source, battery)
       : (Number(source.hours) || 0);
@@ -169,6 +172,7 @@ export const calculateAutonomy = (
     dailyWhGenerated = 0;
   } else {
     charging.forEach(source => {
+      if (source.enabled === false) return;
       let h = Number(source.hours) || 0;
       if (source.type === 'solar') {
         if (scenario === 'peak') h = solarForecast ? (solarForecast.sunny || 6.0) : 6.0;

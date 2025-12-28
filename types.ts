@@ -1,3 +1,4 @@
+
 export enum LoadCategory {
   DC_LOADS = 'DC Loads (Native/DCDC)',
   AC_LOADS = 'AC Loads (Inverter)',
@@ -14,6 +15,7 @@ export interface PowerItem {
   dutyCycle: number; // Percentage (0-100)
   notes: string;
   technicalSpecs?: string;
+  enabled?: boolean;
 }
 
 export interface ChargingSource {
@@ -26,6 +28,7 @@ export interface ChargingSource {
   efficiency: number;
   type: 'solar' | 'alternator' | 'generator' | 'mppt' | 'charger' | 'wind' | 'other';
   autoSolar?: boolean;
+  enabled?: boolean;
 }
 
 export interface SolarForecast {
@@ -46,7 +49,7 @@ export interface BatteryConfig {
   initialSoC: number;
   location: string;
   forecastMode: 'now' | 'monthAvg';
-  forecastMonth?: string; // YYYY-MM
+  forecastMonth?: string; // YYYY-MM-DD
   forecast?: SolarForecast;
 }
 
