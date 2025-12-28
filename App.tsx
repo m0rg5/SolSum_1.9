@@ -241,6 +241,15 @@ const App: React.FC = () => {
     e.target.value = '';
   };
 
+  const formatMonthShort = (isoMonth: string) => {
+    if (!isoMonth) return '';
+    const [year, month] = isoMonth.split('-');
+    const date = new Date(parseInt(year), parseInt(month) - 1);
+    const monthStr = date.toLocaleString('default', { month: 'short' });
+    const shortYear = year.slice(-2);
+    return `${monthStr} ${shortYear}`;
+  };
+
   const netKwh = totals.netWh / 1000;
   
   return (
@@ -284,15 +293,29 @@ const App: React.FC = () => {
                     <input type="checkbox" checked={battery.forecastMode === 'now'} onChange={(e) => handleUpdateBattery('forecastMode', e.target.checked ? 'now' : 'monthAvg')} className="w-2.5 h-2.5 rounded bg-slate-800 border-slate-700 text-blue-600 focus:ring-0 cursor-pointer" />
                   </label>
                 </div>
-                <input 
-                  type="month" 
-                  value={battery.forecastMonth || ''} 
-                  onChange={(e) => {
-                    handleUpdateBattery('forecastMonth', e.target.value);
-                    if (battery.forecastMode === 'now') handleUpdateBattery('forecastMode', 'monthAvg');
-                  }}
-                  className={`bg-transparent border-none w-full text-slate-200 font-mono text-[0.8rem] h-[1.1rem] focus:ring-0 font-black outline-none p-0 cursor-pointer ${battery.forecastMode === 'now' ? 'opacity-50' : ''}`}
-                />
+                {/* INVISIBLE OVERLAY PATTERN: Full Container Click Target */}
+                <div className="relative group/mth flex items-center h-6 w-full cursor-pointer">
+                  <input 
+                    type="month" 
+                    value={battery.forecastMonth || ''} 
+                    onClick={(e) => {
+                      try {
+                        if ('showPicker' in HTMLInputElement.prototype) {
+                          e.currentTarget.showPicker();
+                        }
+                      } catch (err) {}
+                    }}
+                    onChange={(e) => {
+                      handleUpdateBattery('forecastMonth', e.target.value);
+                      if (battery.forecastMode === 'now') handleUpdateBattery('forecastMode', 'monthAvg');
+                    }}
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20" 
+                  />
+                  <div className={`text-slate-200 font-mono config-input-small font-black truncate w-full flex items-center gap-2 ${battery.forecastMode === 'now' ? 'opacity-50' : ''} ${battery.forecast?.loading ? 'animate-pulse text-blue-300' : ''}`}>
+                    {formatMonthShort(battery.forecastMonth || '')}
+                    {battery.forecast?.loading && <div className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-bounce"></div>}
+                  </div>
+                </div>
               </div>
 
               <div className="flex-1 min-w-[70px] bg-slate-900 p-[7px] rounded-lg border border-slate-800 ring-1 ring-white/5 shadow-inner flex flex-col justify-center">
