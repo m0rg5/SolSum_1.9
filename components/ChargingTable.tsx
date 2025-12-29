@@ -126,9 +126,9 @@ const ChargingTable: React.FC<ChargingTableProps> = ({
             <SortHeader label="Charging Source" sortKey="name" currentSort={sortState} onSort={handleSort} widthClass="min-w-[180px]" />
             <th className="w-6 text-center">✓</th>
             <th className="px-1 py-2 text-center whitespace-nowrap w-[18px]">@</th>
-            <SortHeader label="Input" sortKey="input" currentSort={sortState} onSort={handleSort} className="text-right" widthClass="w-[48px]" />
+            <SortHeader label="Input" sortKey="input" currentSort={sortState} onSort={handleSort} className="text-right" widthClass="w-[58px]" />
             <th className="px-1 py-2 text-center whitespace-nowrap w-[30px]">☀️ Auto</th>
-            <SortHeader label="Hrs/Day" sortKey="hours" currentSort={sortState} onSort={handleSort} className="text-right" widthClass="w-[38px]" />
+            <SortHeader label="Hrs/Day" sortKey="hours" currentSort={sortState} onSort={handleSort} className="text-right" widthClass="w-[46px]" />
             <SortHeader label="Efficiency" sortKey="efficiency" currentSort={sortState} onSort={handleSort} className="text-right" widthClass="w-[38px]" />
             <SortHeader label="Daily Wh" sortKey="dailyWh" currentSort={sortState} onSort={handleSort} className="text-right" widthClass="w-[45px]" />
             <th className="px-2 py-2 w-8"></th>
@@ -190,7 +190,7 @@ const ChargingTable: React.FC<ChargingTableProps> = ({
                 </td>
                 <td className="px-1 py-1 text-right">
                   {!managementItem ? (
-                    <div className="inline-flex items-center justify-end w-[38px] bg-slate-850 border border-slate-700 rounded px-1 py-0.5 focus-within:border-blue-500 transition-colors">
+                    <div className="inline-flex items-center justify-end w-[46px] bg-slate-850 border border-slate-700 rounded px-1 py-0.5 focus-within:border-blue-500 transition-colors">
                       <NumberInput value={source.input} onChange={(val) => onUpdateSource(source.id, 'input', val)} />
                       <span className="text-[7px] text-slate-500 font-black uppercase shrink-0 pr-0.5">W</span>
                     </div>
@@ -209,7 +209,7 @@ const ChargingTable: React.FC<ChargingTableProps> = ({
                   )}
                 </td>
                 <td className="px-1 py-1 text-right relative">
-                  <div className={`inline-flex items-center justify-end w-[32px] bg-slate-850 border border-slate-700 rounded px-1 py-0.5 focus-within:border-blue-500 transition-colors ${source.autoSolar ? 'opacity-50' : ''}`}>
+                  <div className={`inline-flex items-center justify-end w-[38px] bg-slate-850 border border-slate-700 rounded px-1 py-0.5 focus-within:border-blue-500 transition-colors ${source.autoSolar ? 'opacity-50' : ''}`}>
                     <NumberInput 
                       value={effectiveHours} 
                       onChange={(val) => onUpdateSource(source.id, 'hours', val)} 

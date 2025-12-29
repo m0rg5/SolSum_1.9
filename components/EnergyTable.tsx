@@ -119,9 +119,9 @@ const EnergyTable: React.FC<EnergyTableProps> = ({
             <SortHeader label="Item" sortKey="name" currentSort={sortState} onSort={handleSortChange} widthClass="min-w-[180px]" />
             <th className="w-6 text-center">✓</th>
             <th className="px-1 py-2 text-center whitespace-nowrap w-[18px]">@</th>
-            <SortHeader label="POWER (W)" sortKey="watts" currentSort={sortState} onSort={handleSortChange} className="text-right" widthClass="w-[42px]" />
-            <SortHeader label="HRS/DAY" sortKey="hours" currentSort={sortState} onSort={handleSortChange} className="text-right" widthClass="w-[38px]" />
-            <th className="px-1 py-2 text-right whitespace-nowrap w-[38px]">DUTY %</th>
+            <SortHeader label="POWER (W)" sortKey="watts" currentSort={sortState} onSort={handleSortChange} className="text-right" widthClass="w-[50px]" />
+            <SortHeader label="HRS/DAY" sortKey="hours" currentSort={sortState} onSort={handleSortChange} className="text-right" widthClass="w-[46px]" />
+            <th className="px-1 py-2 text-right whitespace-nowrap w-[42px]">DUTY %</th>
             <SortHeader label="DAILY WH" sortKey="wh" currentSort={sortState} onSort={handleSortChange} className="text-right" widthClass="w-[45px]" />
             <SortHeader label="AH TOTAL" sortKey="ah" currentSort={sortState} onSort={handleSortChange} className="text-right" widthClass="w-[45px]" />
             <th className="px-2 py-2 whitespace-nowrap uppercase">Notes</th>
@@ -173,19 +173,19 @@ const EnergyTable: React.FC<EnergyTableProps> = ({
                   )}
                 </td>
                 <td className="px-1 py-1 text-right">
-                  <div className={`inline-flex items-center justify-end w-[34px] bg-slate-850 border border-slate-700 rounded px-1 py-0.5 focus-within:border-blue-500 transition-colors`}>
+                  <div className={`inline-flex items-center justify-end w-[41px] bg-slate-850 border border-slate-700 rounded px-1 py-0.5 focus-within:border-blue-500 transition-colors`}>
                     <NumberInput value={item.watts} onChange={(val) => onUpdateItem(item.id, 'watts', val)} />
                     <span className="text-[7px] text-slate-500 font-black uppercase shrink-0">W</span>
                   </div>
                 </td>
                 <td className="px-1 py-1 text-right">
-                  <div className={`inline-flex items-center justify-end w-[30px] bg-slate-850 border border-slate-700 rounded px-1 py-0.5 focus-within:border-blue-500 transition-colors`}>
+                  <div className={`inline-flex items-center justify-end w-[36px] bg-slate-850 border border-slate-700 rounded px-1 py-0.5 focus-within:border-blue-500 transition-colors`}>
                     <NumberInput value={item.hours} onChange={(val) => onUpdateItem(item.id, 'hours', val)} step="0.1" />
                     <span className="text-[7px] text-slate-500 font-black uppercase shrink-0">H</span>
                   </div>
                 </td>
                 <td className="px-1 py-1 text-right">
-                   <div className={`inline-flex items-center justify-end w-[30px] bg-slate-850 border border-slate-700 rounded px-1 py-0.5 focus-within:border-blue-500 transition-colors`}>
+                   <div className={`inline-flex items-center justify-end w-[33px] bg-slate-850 border border-slate-700 rounded px-1 py-0.5 focus-within:border-blue-500 transition-colors`}>
                     <NumberInput value={item.dutyCycle || 100} onChange={(val) => onUpdateItem(item.id, 'dutyCycle', Math.min(100, Math.max(1, val)))} className={item.dutyCycle < 100 ? 'text-amber-400' : ''}/>
                     <span className="text-[7px] text-slate-500 font-black uppercase shrink-0">%</span>
                   </div>
