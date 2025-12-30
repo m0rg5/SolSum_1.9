@@ -458,7 +458,8 @@ const App: React.FC = () => {
 
       <ChatBot 
         items={items} totals={totals} battery={battery} charging={charging} isOpen={chatOpen} modeProp={chatMode} 
-        onOpen={() => setChatOpen(true)} onClose={() => setChatOpen(false)}
+        onOpen={() => { setChatMode('general'); setChatOpen(true); }} 
+        onClose={() => setChatOpen(false)}
         onAddLoadItem={handleAIAddLoad} onAddChargingSource={handleAIAddSource}
       />
     </div>
