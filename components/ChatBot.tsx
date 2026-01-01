@@ -1,7 +1,9 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { Chat, GenerateContentResponse, FunctionCall } from "@google/genai";
 import ReactMarkdown from 'react-markdown';
 import { createChatSession, getDynamicSuggestions } from '../services/geminiService';
+import { calculateItemEnergy, getEffectiveSolarHours } from '../services/powerLogic';
 import { ChatMessage, PowerItem, SystemTotals, ChargingSource, ChatMode, BatteryConfig } from '../types';
 
 interface ChatBotProps {
@@ -277,21 +279,30 @@ const ChatBot: React.FC<ChatBotProps> = ({
     }
 
     try {
-        // ENHANCEMENT: Inject system context if user asks for an audit or cable sizing
         let promptWithContext = textToSend;
-        const needsContext = textToSend.toLowerCase().match(/audit|status|check|system|health|capacity|life|can I|how long|cable|sizing|wire|gauge|fuse/);
         
-        if (needsContext || messages.length <= 1) {
-          const snapshot = `
-[SYSTEM STATE CONTEXT]
-Bus Voltage: ${battery.voltage}V
-Battery: ${totals.finalSoC.toFixed(0)}% SoC (${battery.capacityAh}Ah)
-Net Change: ${totals.netWh.toFixed(0)}Wh / ${totals.netAh.toFixed(1)}Ah per day
-Loads (${items.length}): ${items.map(i => `${i.name} [${i.category}] (${i.watts}W)`).join(', ')}
-Charging (${charging.length}): ${charging.map(c => `${c.name} (${c.input}${c.unit})`).join(', ')}
+        // In General Chat Mode, ALWAYS inject the live system context so the AI sees what the user sees.
+        // This includes computed values (Wh, Ah) which are critical for explaining "wrong" calcs.
+        const snapshot = `
+[LIVE SYSTEM DATA]
+System Voltage: ${battery.voltage}V | Battery Cap: ${battery.capacityAh}Ah | Initial SoC: ${battery.initialSoC}%
+Net Daily: ${totals.netWh.toFixed(0)}Wh (${totals.netAh.toFixed(1)}Ah) | Final SoC: ${totals.finalSoC.toFixed(0)}%
+
+LOADS (Power Out):
+${items.map(i => {
+  const { wh, ah } = calculateItemEnergy(i, battery.voltage);
+  return `- ${i.name} [${i.category}]: ${i.quantity}x @ ${i.watts}W for ${i.hours}h (${i.dutyCycle}% Duty) = ${wh.toFixed(0)}Wh / ${ah.toFixed(1)}Ah per day`;
+}).join('\n')}
+
+SOURCES (Power In):
+${charging.map(c => {
+  const h = c.type === 'solar' ? getEffectiveSolarHours(c, battery) : c.hours;
+  const eff = c.efficiency || 0.85;
+  const dailyWh = c.unit === 'W' ? c.input * h * eff * c.quantity : c.input * battery.voltage * h * eff * c.quantity;
+  return `- ${c.name} [${c.type}]: ${c.quantity}x @ ${c.input}${c.unit} for ${h.toFixed(1)}h (Eff: ${eff}) = ${dailyWh.toFixed(0)}Wh per day`;
+}).join('\n')}
 `;
-          promptWithContext = `${snapshot}\n\nUser Question: ${textToSend}`;
-        }
+        promptWithContext = `${snapshot}\n\nUser Question: ${textToSend}`;
 
         const result = await chatSessionRef.current.sendMessageStream({ message: promptWithContext });
         let fullRawText = '';
