@@ -145,8 +145,11 @@ const ChargingTable: React.FC<ChargingTableProps> = ({
             const inputVal = Number(source.input) || 0;
             const systemV = Number(battery.voltage) || 24;
             const qty = Number(source.quantity) || 1;
-            // Force logic to treat unit as 'W'
-            const dailyWh = managementItem ? 0 : (inputVal * rawEffectiveHours * efficiency * qty);
+            
+            // Fix: Respect the Unit (Amps vs Watts) for table display calculation
+            const isAmps = source.unit === 'A';
+            const dailyWh = managementItem ? 0 : (inputVal * (isAmps ? systemV : 1) * rawEffectiveHours * efficiency * qty);
+            
             const isHighlighted = highlightedId === source.id;
             const isDisabled = source.enabled === false;
             
@@ -192,7 +195,13 @@ const ChargingTable: React.FC<ChargingTableProps> = ({
                   {!managementItem ? (
                     <div className="inline-flex items-center justify-end w-[46px] bg-slate-850 border border-slate-700 rounded px-1 py-0.5 focus-within:border-blue-500 transition-colors">
                       <NumberInput value={source.input} onChange={(val) => onUpdateSource(source.id, 'input', val)} />
-                      <span className="text-[7px] text-slate-500 font-black uppercase shrink-0 pr-0.5">W</span>
+                      <button 
+                        onClick={() => onUpdateSource(source.id, 'unit', source.unit === 'W' ? 'A' : 'W')}
+                        className="text-[7px] text-slate-500 font-black uppercase shrink-0 pr-0.5 pl-1 hover:text-blue-400 cursor-pointer transition-colors"
+                        title="Toggle Unit (Watts/Amps)"
+                      >
+                        {source.unit || 'W'}
+                      </button>
                     </div>
                   ) : (
                     <span className="text-slate-600 italic text-[10px]">Internal</span>
