@@ -36,7 +36,7 @@ const SOURCE_TOOLS = [{
         quantity: { type: Type.NUMBER, description: 'Number of panels or sources. Default 1' },
         input: { type: Type.NUMBER, description: 'Input value in WATTS per unit.' },
         hours: { type: Type.NUMBER, description: 'Generation hours per day' },
-        efficiency: { type: Type.NUMBER, description: 'Efficiency decimal (0.1 to 1.0). For Solar, default to 0.85 (system derating).' },
+        efficiency: { type: Type.NUMBER, description: 'Efficiency decimal. Default 0.85 for standard Solar. Use 0.95 for Bifacial (BF) to reflect moderate rear-side gain.' },
         type: { type: Type.STRING, enum: ['solar', 'alternator', 'generator', 'mppt', 'charger', 'wind', 'other'] }
       },
       required: ['name', 'input', 'type']
@@ -55,7 +55,9 @@ export const createChatSession = (mode: ChatMode): Chat => {
         2. When estimating AC items, you MUST explicitly consider the total system overhead.
         3. For AC Loads (Inverter), focus on the item's plate wattage. The system automatically calculates conversion losses (efficiency curve).
         4. If a user asks for an inverter itself, suggest placing it in "System Mgmt" as a standby load.
-        5. For solar panels, assume an efficiency (derating) of 0.85. NEVER use 0.20 as that is panel conversion efficiency, which is already reflected in the rated Watts.
+        5. For solar panels, assume a base efficiency (derating) of 0.85. 
+           CRITICAL: If the panel is BIFACIAL (BF), use 0.95 to account for rear-side gain offsetting system losses.
+           NEVER use 0.20 as that is panel conversion efficiency, which is already reflected in the rated Watts.
         6. Even if some data is missing, make a technical estimate and put assumptions in 'notes'.
         7. If the user mentions multiple items (e.g., "2 solar panels"), set 'quantity' accordingly.
         8. **POWER INPUT IS ALWAYS WATTS.** If the user provides Amps (e.g. "20A DC-DC Charger"), YOU MUST CALCULATE THE WATTS (Amps × System Voltage). Assume 24V if voltage is not specified in the prompt.
