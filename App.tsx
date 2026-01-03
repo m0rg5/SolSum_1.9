@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { INITIAL_DATA, INITIAL_CHARGING, INITIAL_BATTERY } from './constants';
 import { PowerItem, ChargingSource, BatteryConfig, LoadCategory, ChatMode, AppStateExport } from './types';
@@ -193,14 +194,34 @@ const App: React.FC = () => {
 
   const handleAIAddLoad = useCallback((itemProps: Omit<PowerItem, 'id'>) => {
     const id = Math.random().toString(36).substr(2, 9);
-    setItems(prev => [...prev, { id, quantity: 1, ...itemProps, category: itemProps.category as LoadCategory, enabled: true }]);
+    setItems(prev => [...prev, { 
+      id, 
+      quantity: 1,
+      watts: 0,
+      dutyCycle: 100,
+      notes: '', 
+      ...itemProps,
+      // Hardened Default: Ensure we never have 0 hours for a load unless explicitly 0
+      hours: itemProps.hours === 0 ? 0 : (Number(itemProps.hours) || 1),
+      category: itemProps.category as LoadCategory, 
+      enabled: true 
+    }]);
     setHighlightedRow({ id, kind: 'load' });
     setTimeout(() => setHighlightedRow(null), 2500);
   }, []);
 
   const handleAIAddSource = useCallback((sourceProps: Omit<ChargingSource, 'id'>) => {
     const id = Math.random().toString(36).substr(2, 9);
-    setCharging(prev => [...prev, { id, quantity: 1, ...sourceProps, enabled: true }]);
+    setCharging(prev => [...prev, { 
+      id, 
+      quantity: 1,
+      input: 0,
+      efficiency: 0.85, 
+      ...sourceProps, 
+      // Hardened Default: Ensure we never have 0 hours for a source unless explicitly 0
+      hours: sourceProps.hours === 0 ? 0 : (Number(sourceProps.hours) || 5),
+      enabled: true 
+    }]);
     setHighlightedRow({ id, kind: 'source' });
     setTimeout(() => setHighlightedRow(null), 2500);
   }, []);

@@ -103,8 +103,9 @@ const ChargingTable: React.FC<ChargingTableProps> = ({
       if (key === 'dailyWh') {
         const hA = getEffectiveSolarHours(a, battery);
         const hB = getEffectiveSolarHours(b, battery);
-        valA = a.unit === 'W' || !a.unit ? (a.input * hA * a.efficiency * a.quantity) : (a.input * battery.voltage * hA * a.efficiency * a.quantity);
-        valB = b.unit === 'W' || !b.unit ? (b.input * hB * b.efficiency * b.quantity) : (b.input * battery.voltage * hB * b.efficiency * b.quantity);
+        // Watts Only Logic
+        valA = (a.input * hA * a.efficiency * a.quantity);
+        valB = (b.input * hB * b.efficiency * b.quantity);
       }
 
       if (typeof valA === 'string') return dir === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
@@ -126,7 +127,7 @@ const ChargingTable: React.FC<ChargingTableProps> = ({
             <SortHeader label="Charging Source" sortKey="name" currentSort={sortState} onSort={handleSort} widthClass="min-w-[180px]" />
             <th className="w-6 text-center">✓</th>
             <th className="px-1 py-2 text-center whitespace-nowrap w-[18px]">@</th>
-            <SortHeader label="Input" sortKey="input" currentSort={sortState} onSort={handleSort} className="text-right" widthClass="w-[58px]" />
+            <SortHeader label="Input (W)" sortKey="input" currentSort={sortState} onSort={handleSort} className="text-right" widthClass="w-[58px]" />
             <th className="px-1 py-2 text-center whitespace-nowrap w-[30px]">☀️ Auto</th>
             <SortHeader label="Hrs/Day" sortKey="hours" currentSort={sortState} onSort={handleSort} className="text-right" widthClass="w-[46px]" />
             <SortHeader label="Efficiency" sortKey="efficiency" currentSort={sortState} onSort={handleSort} className="text-right" widthClass="w-[38px]" />
@@ -143,17 +144,14 @@ const ChargingTable: React.FC<ChargingTableProps> = ({
             
             const efficiency = Number(source.efficiency) || 0.85;
             const inputVal = Number(source.input) || 0;
-            const systemV = Number(battery.voltage) || 24;
             const qty = Number(source.quantity) || 1;
             
-            // Fix: Respect the Unit (Amps vs Watts) for table display calculation
-            const isAmps = source.unit === 'A';
-            const dailyWh = managementItem ? 0 : (inputVal * (isAmps ? systemV : 1) * rawEffectiveHours * efficiency * qty);
+            // WATTS ONLY LOGIC
+            const dailyWh = managementItem ? 0 : (inputVal * rawEffectiveHours * efficiency * qty);
             
             const isHighlighted = highlightedId === source.id;
             const isDisabled = source.enabled === false;
             
-            // Unified "AUTO ERR" logic using shared normalization result
             const norm = normalizeAutoSolarHours(battery);
             const isAutoErr = source.autoSolar && (norm.status === 'invalid' || norm.status === 'nodata');
               
@@ -195,13 +193,7 @@ const ChargingTable: React.FC<ChargingTableProps> = ({
                   {!managementItem ? (
                     <div className="inline-flex items-center justify-end w-[46px] bg-slate-850 border border-slate-700 rounded px-1 py-0.5 focus-within:border-blue-500 transition-colors">
                       <NumberInput value={source.input} onChange={(val) => onUpdateSource(source.id, 'input', val)} />
-                      <button 
-                        onClick={() => onUpdateSource(source.id, 'unit', source.unit === 'W' ? 'A' : 'W')}
-                        className="text-[7px] text-slate-500 font-black uppercase shrink-0 pr-0.5 pl-1 hover:text-blue-400 cursor-pointer transition-colors"
-                        title="Toggle Unit (Watts/Amps)"
-                      >
-                        {source.unit || 'W'}
-                      </button>
+                      <span className="text-[7px] text-slate-500 font-black uppercase shrink-0 pr-0.5 pl-1">W</span>
                     </div>
                   ) : (
                     <span className="text-slate-600 italic text-[10px]">Internal</span>

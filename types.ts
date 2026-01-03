@@ -23,7 +23,7 @@ export interface ChargingSource {
   name: string;
   quantity: number;
   input: number;
-  unit: 'W' | 'A';
+  unit?: 'W'; // 'A' is deprecated. All inputs are Watts.
   hours: number;
   efficiency: number;
   type: 'solar' | 'alternator' | 'generator' | 'mppt' | 'charger' | 'wind' | 'other';

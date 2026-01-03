@@ -1,3 +1,4 @@
+
 import { LoadCategory, PowerItem, ChargingSource, BatteryConfig } from './types';
 
 export const SYSTEM_VOLTAGE = 24;

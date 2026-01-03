@@ -67,17 +67,24 @@ export const normalizeAutoSolarHours = (battery: BatteryConfig): {
  */
 export const getEffectiveSolarHours = (source: ChargingSource, battery: BatteryConfig): number => {
   const manualHours = Number(source.hours) || 0;
-  if (!source.autoSolar || source.type !== 'solar') {
-    return manualHours;
+  const norm = normalizeAutoSolarHours(battery);
+
+  // 1. Auto Mode: Prioritize Forecast
+  if (source.autoSolar && source.type === 'solar') {
+    if (norm.status === 'ok' && norm.value !== null) return norm.value;
+    // Fallback if data invalid
+    return manualHours > 0 ? manualHours : norm.fallbackValue;
+  }
+  
+  // 2. Manual Mode (Solar): Safety Fallback
+  // If a solar panel has 0 hours (common AI/User error), use standard fallback instead of 0Wh.
+  // User can still disable the item via the 'enabled' checkbox if they want it off.
+  if (source.type === 'solar' && manualHours === 0) {
+    return norm.fallbackValue;
   }
 
-  const norm = normalizeAutoSolarHours(battery);
-  
-  // Physics Guard: If we have valid data (including explicit 0.0), use it.
-  if (norm.status === 'ok' && norm.value !== null) return norm.value;
-  
-  // Fallback: Use manual input if user provided one, else the standard fallback.
-  return manualHours > 0 ? manualHours : norm.fallbackValue;
+  // 3. Other Modes / Manual Non-Solar
+  return manualHours;
 };
 
 export const calculateItemEnergy = (item: PowerItem, systemVoltage: number) => {
@@ -123,11 +130,8 @@ export const calculateSystemTotals = (
     const efficiency = Number(source.efficiency) || 0.85;
     const qty = Number(source.quantity) || 1;
 
-    if (source.unit === 'W') {
-      dailyWhGenerated += (input * hours * efficiency * qty);
-    } else {
-      dailyWhGenerated += (input * systemVoltage * hours * efficiency * qty);
-    }
+    // Treat all input as Watts directly, ignoring 'unit' property
+    dailyWhGenerated += (input * hours * efficiency * qty);
   });
 
   const dailyAhConsumed = (dailyWhConsumed / systemVoltage) || 0;
@@ -181,10 +185,9 @@ export const calculateAutonomy = (
       const input = Number(source.input) || 0;
       const efficiency = Number(source.efficiency) || 0.85;
       const qty = Number(source.quantity) || 1;
-      const val = source.unit === 'W'
-        ? (input * h * efficiency * qty)
-        : (input * systemV * h * efficiency * qty);
-      dailyWhGenerated += val;
+      
+      // Treat input as Watts
+      dailyWhGenerated += (input * h * efficiency * qty);
     });
   }
 

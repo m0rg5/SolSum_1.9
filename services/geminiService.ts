@@ -1,3 +1,4 @@
+
 // Use FunctionCallingConfigMode enum to satisfy the type requirement for tool configuration.
 import { GoogleGenAI, Type, Chat, FunctionCallingConfigMode } from "@google/genai";
 import { ChatMode } from "../types";
@@ -33,13 +34,12 @@ const SOURCE_TOOLS = [{
       properties: {
         name: { type: Type.STRING, description: 'Model/Name of the panel or source' },
         quantity: { type: Type.NUMBER, description: 'Number of panels or sources. Default 1' },
-        input: { type: Type.NUMBER, description: 'Input value (Watts or Amps) PER UNIT' },
-        unit: { type: Type.STRING, enum: ['W', 'A'] },
+        input: { type: Type.NUMBER, description: 'Input value in WATTS per unit.' },
         hours: { type: Type.NUMBER, description: 'Generation hours per day' },
         efficiency: { type: Type.NUMBER, description: 'Efficiency decimal (0.1 to 1.0). For Solar, default to 0.85 (system derating).' },
         type: { type: Type.STRING, enum: ['solar', 'alternator', 'generator', 'mppt', 'charger', 'wind', 'other'] }
       },
-      required: ['name', 'input', 'unit', 'type']
+      required: ['name', 'input', 'type']
     }
   }]
 }];
@@ -58,7 +58,8 @@ export const createChatSession = (mode: ChatMode): Chat => {
         5. For solar panels, assume an efficiency (derating) of 0.85. NEVER use 0.20 as that is panel conversion efficiency, which is already reflected in the rated Watts.
         6. Even if some data is missing, make a technical estimate and put assumptions in 'notes'.
         7. If the user mentions multiple items (e.g., "2 solar panels"), set 'quantity' accordingly.
-        8. NEVER respond with text or JSON. ONLY call tools.`,
+        8. **POWER INPUT IS ALWAYS WATTS.** If the user provides Amps (e.g. "20A DC-DC Charger"), YOU MUST CALCULATE THE WATTS (Amps × System Voltage). Assume 24V if voltage is not specified in the prompt.
+        9. NEVER respond with text or JSON. ONLY call tools.`,
         tools: mode === 'load' ? LOAD_TOOLS : SOURCE_TOOLS,
         toolConfig: {
           functionCallingConfig: {
