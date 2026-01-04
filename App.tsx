@@ -2,7 +2,7 @@
 import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { INITIAL_DATA, INITIAL_CHARGING, INITIAL_BATTERY } from './constants';
 import { PowerItem, ChargingSource, BatteryConfig, LoadCategory, ChatMode, AppStateExport } from './types';
-import { calculateSystemTotals } from './services/powerLogic';
+import { calculateSystemTotals, calculateItemEnergy, getEffectiveSolarHours } from './services/powerLogic';
 import { geocodeLocation, fetchNowSolarPSH, fetchMonthAvgSolarPSH } from './services/weatherService';
 import EnergyTable from './components/EnergyTable';
 import ChargingTable from './components/ChargingTable';
@@ -18,7 +18,6 @@ const App: React.FC = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [hasHydrated, setHasHydrated] = useState(false);
 
-  // Persistence Helper: Get Saved Data
   const getSavedData = () => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
@@ -34,7 +33,6 @@ const App: React.FC = () => {
 
   const savedData = useMemo(() => getSavedData(), []);
 
-  // Persistence: Load (Atomic Initializers)
   const [items, setItems] = useState<PowerItem[]>(() => {
     const data = savedData?.items || INITIAL_DATA;
     return data.map((i: PowerItem) => ({ ...i, enabled: i.enabled ?? true }));
@@ -56,7 +54,6 @@ const App: React.FC = () => {
       forecastMonth: defaultMonth
     };
 
-    // Deep merge to ensure new system keys (like forecastMode) are present even in old saves
     const merged = {
       ...INITIAL_BATTERY,
       forecastMode: 'now' as const,
@@ -64,7 +61,6 @@ const App: React.FC = () => {
       ...savedBat
     };
 
-    // Ensure legacy YYYY-MM converts to YYYY-MM-DD
     if (merged.forecastMonth && merged.forecastMonth.split('-').length === 2) {
       merged.forecastMonth = `${merged.forecastMonth}-15`;
     }
@@ -82,27 +78,19 @@ const App: React.FC = () => {
   const [chatMode, setChatMode] = useState<ChatMode>('general');
   const [highlightedRow, setHighlightedRow] = useState<{ id: string, kind: 'load' | 'source' } | null>(null);
 
-  // Persistence Step 1: Mark Hydration Complete AFTER first paint
   useEffect(() => {
     const timer = setTimeout(() => setHasHydrated(true), 100);
     return () => clearTimeout(timer);
   }, []);
 
-  // Persistence Step 2: Save Trigger (Gated by hasHydrated)
   useEffect(() => {
     if (!hasHydrated) return;
-
     const state = {
       version: STORAGE_SCHEMA_VERSION,
       savedAt: Date.now(),
       data: { items, charging, battery }
     };
-    
-    if (items.length === 0 && charging.length === 0) {
-      console.warn("Blocking save: System state appears empty during sync.");
-      return;
-    }
-
+    if (items.length === 0 && charging.length === 0) return;
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   }, [items, charging, battery, hasHydrated]);
 
@@ -195,16 +183,9 @@ const App: React.FC = () => {
   const handleAIAddLoad = useCallback((itemProps: Omit<PowerItem, 'id'>) => {
     const id = Math.random().toString(36).substr(2, 9);
     setItems(prev => [...prev, { 
-      id, 
-      quantity: 1,
-      watts: 0,
-      dutyCycle: 100,
-      notes: '', 
-      ...itemProps,
-      // Hardened Default: Ensure we never have 0 hours for a load unless explicitly 0
+      id, quantity: 1, watts: 0, dutyCycle: 100, notes: '', ...itemProps,
       hours: itemProps.hours === 0 ? 0 : (Number(itemProps.hours) || 1),
-      category: itemProps.category as LoadCategory, 
-      enabled: true 
+      category: itemProps.category as LoadCategory, enabled: true 
     }]);
     setHighlightedRow({ id, kind: 'load' });
     setTimeout(() => setHighlightedRow(null), 2500);
@@ -213,12 +194,7 @@ const App: React.FC = () => {
   const handleAIAddSource = useCallback((sourceProps: Omit<ChargingSource, 'id'>) => {
     const id = Math.random().toString(36).substr(2, 9);
     setCharging(prev => [...prev, { 
-      id, 
-      quantity: 1,
-      input: 0,
-      efficiency: 0.85, 
-      ...sourceProps, 
-      // Hardened Default: Ensure we never have 0 hours for a source unless explicitly 0
+      id, quantity: 1, input: 0, efficiency: 0.85, ...sourceProps, 
       hours: sourceProps.hours === 0 ? 0 : (Number(sourceProps.hours) || 5),
       enabled: true 
     }]);
@@ -312,38 +288,21 @@ const App: React.FC = () => {
                 <input type="text" value={battery.location || ''} onChange={(e) => handleUpdateBattery('location', e.target.value)} placeholder="e.g. 2048" className="bg-transparent border-none w-full text-slate-200 font-mono config-input-small focus:ring-0 font-black outline-none p-0" />
               </div>
 
-              {/* DATE SELECTOR (MANUAL MM/YY) */}
               <div className="flex-1 min-w-[90px] bg-slate-900 p-[7px] rounded-lg border border-slate-800 ring-1 ring-white/5 shadow-inner flex flex-col justify-center relative group">
                 <div className="flex justify-between items-center mb-0.5 relative z-20">
                   <label className="config-label-small uppercase text-slate-600 font-black tracking-widest">DATE (MM/YY)</label>
-                  <label 
-                    className="flex items-center gap-1 cursor-pointer group/toggle" 
-                    title="Toggle Real-time Forecast"
-                  >
+                  <label className="flex items-center gap-1 cursor-pointer group/toggle" title="Toggle Real-time Forecast">
                     <span className={`text-[6px] font-black uppercase transition-colors ${battery.forecastMode === 'now' ? 'text-blue-400' : 'text-slate-600 group-hover/toggle:text-slate-400'}`}>Now</span>
-                    <input 
-                      type="checkbox" 
-                      checked={battery.forecastMode === 'now'} 
-                      onChange={(e) => handleUpdateBattery('forecastMode', e.target.checked ? 'now' : 'monthAvg')} 
-                      className="w-2.5 h-2.5 rounded bg-slate-800 border-slate-700 text-blue-600 focus:ring-0 cursor-pointer" 
-                    />
+                    <input type="checkbox" checked={battery.forecastMode === 'now'} onChange={(e) => handleUpdateBattery('forecastMode', e.target.checked ? 'now' : 'monthAvg')} className="w-2.5 h-2.5 rounded bg-slate-800 border-slate-700 text-blue-600 focus:ring-0 cursor-pointer" />
                   </label>
                 </div>
-                
                 <div className={`flex items-center gap-1 h-6 w-full ${battery.forecastMode === 'now' ? 'opacity-30 pointer-events-none' : 'opacity-100'} transition-opacity`}>
-                   <input 
-                     type="text" 
-                     placeholder="MM"
-                     maxLength={2}
-                     value={battery.forecastMonth?.split('-')[1] || ''}
-                     onChange={(e) => {
+                   <input type="text" placeholder="MM" maxLength={2} value={battery.forecastMonth?.split('-')[1] || ''} onChange={(e) => {
                        const val = e.target.value.replace(/\D/g, '');
                        if (val.length <= 2) {
                           const cur = battery.forecastMonth || `${new Date().getFullYear()}-01-01`;
                           const parts = cur.split('-');
-                          const y = parts[0] || new Date().getFullYear();
-                          const d = parts[2] || '01';
-                          handleUpdateBattery('forecastMonth', `${y}-${val}-${d}`);
+                          handleUpdateBattery('forecastMonth', `${parts[0]}-${val}-${parts[2] || '01'}`);
                        }
                      }}
                      onBlur={(e) => {
@@ -351,40 +310,29 @@ const App: React.FC = () => {
                        if (val.length === 1) val = '0' + val;
                        if (val === '00' || val === '') val = '01';
                        if (Number(val) > 12) val = '12';
-                       
                        const cur = battery.forecastMonth || `${new Date().getFullYear()}-01-01`;
                        const parts = cur.split('-');
                        handleUpdateBattery('forecastMonth', `${parts[0]}-${val}-${parts[2] || '01'}`);
                      }}
-                     className="bg-transparent text-slate-200 font-mono config-input-small font-black w-[24px] text-center focus:outline-none focus:text-blue-400 placeholder-slate-700 p-0"
-                   />
+                     className="bg-transparent text-slate-200 font-mono config-input-small font-black w-[24px] text-center focus:outline-none focus:text-blue-400 placeholder-slate-700 p-0" />
                    <span className="text-slate-600 font-black select-none">/</span>
-                   <input 
-                     type="text" 
-                     placeholder="YY"
-                     maxLength={2}
-                     value={battery.forecastMonth?.split('-')[0].slice(2) || ''}
-                     onChange={(e) => {
+                   <input type="text" placeholder="YY" maxLength={2} value={battery.forecastMonth?.split('-')[0].slice(2) || ''} onChange={(e) => {
                         const val = e.target.value.replace(/\D/g, '');
                         if (val.length <= 2) {
                            const cur = battery.forecastMonth || `${new Date().getFullYear()}-01-01`;
                            const parts = cur.split('-');
-                           const m = parts[1] || '01';
-                           const d = parts[2] || '01';
-                           handleUpdateBattery('forecastMonth', `20${val}-${m}-${d}`);
+                           handleUpdateBattery('forecastMonth', `20${val}-${parts[1] || '01'}-${parts[2] || '01'}`);
                         }
                      }}
                      onBlur={(e) => {
                         let val = e.target.value;
                         if (val.length === 1) val = '0' + val;
                         if (val === '') val = new Date().getFullYear().toString().slice(2);
-
                         const cur = battery.forecastMonth || `${new Date().getFullYear()}-01-01`;
                         const parts = cur.split('-');
                         handleUpdateBattery('forecastMonth', `20${val}-${parts[1] || '01'}-${parts[2] || '01'}`);
                      }}
-                     className="bg-transparent text-slate-200 font-mono config-input-small font-black w-[24px] text-center focus:outline-none focus:text-blue-400 placeholder-slate-700 p-0"
-                   />
+                     className="bg-transparent text-slate-200 font-mono config-input-small font-black w-[24px] text-center focus:outline-none focus:text-blue-400 placeholder-slate-700 p-0" />
                     {battery.forecast?.loading && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-blue-400 animate-bounce"></div>}
                 </div>
               </div>
@@ -409,80 +357,36 @@ const App: React.FC = () => {
               </div>
 
               <div className="w-[40px] flex flex-col gap-1 self-stretch">
-                <button onClick={handleExport} className="flex-1 bg-slate-800 hover:bg-slate-700 rounded-lg border border-slate-700 transition-colors flex items-center justify-center group" title="Export JSON">
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-3 h-3 text-slate-400 group-hover:text-blue-400 transition-colors"><path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" /></svg>
-                </button>
-                <button onClick={handleTriggerImport} className="flex-1 bg-slate-800 hover:bg-slate-700 rounded-lg border border-slate-800 transition-colors flex items-center justify-center group" title="Import JSON">
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-3 h-3 text-slate-400 group-hover:text-emerald-400 transition-colors"><path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" /></svg>
-                  <input type="file" ref={fileInputRef} accept=".json" onChange={handleImport} className="hidden" />
-                </button>
+                <button onClick={handleExport} className="flex-1 bg-slate-800 hover:bg-slate-700 rounded-lg border border-slate-700 transition-colors flex items-center justify-center group" title="Export JSON"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-3 h-3 text-slate-400 group-hover:text-blue-400 transition-colors"><path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" /></svg></button>
+                <button onClick={handleTriggerImport} className="flex-1 bg-slate-800 hover:bg-slate-700 rounded-lg border border-slate-700 transition-colors flex items-center justify-center group" title="Import JSON"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-3 h-3 text-slate-400 group-hover:text-emerald-400 transition-colors"><path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" /></svg><input type="file" ref={fileInputRef} accept=".json" onChange={handleImport} className="hidden" /></button>
               </div>
             </div>
           </section>
 
           <section>
             <h2 className="app-header-font text-[11px] text-slate-400 mb-4 uppercase">Generation (Power In)</h2>
-            <ChargingTable 
-              sources={charging} battery={battery}
-              highlightedId={highlightedRow?.kind === 'source' ? highlightedRow.id : null}
-              onUpdateSource={handleUpdateSource}
-              onDeleteSource={(id) => setCharging(p => p.filter(s => s.id !== id))}
-              onAddSource={() => setCharging(p => [...p, { id: Math.random().toString(36).substr(2, 9), name: 'New Source', quantity: 1, input: 0, unit: 'W', efficiency: 0.9, type: 'solar', hours: 5, autoSolar: false, enabled: true }])}
-              onAIAddSource={() => { setChatMode('source'); setChatOpen(true); }}
-              onUpdateBattery={handleUpdateBattery}
-              onReorder={handleReorderSources} onSort={() => {}}
-            />
+            <ChargingTable sources={charging} battery={battery} highlightedId={highlightedRow?.kind === 'source' ? highlightedRow.id : null} onUpdateSource={handleUpdateSource} onDeleteSource={(id) => setCharging(p => p.filter(s => s.id !== id))} onAddSource={() => setCharging(p => [...p, { id: Math.random().toString(36).substr(2, 9), name: 'New Source', quantity: 1, input: 0, unit: 'W', efficiency: 0.9, type: 'solar', hours: 5, autoSolar: false, enabled: true }])} onAIAddSource={() => { setChatMode('source'); setChatOpen(true); }} onUpdateBattery={handleUpdateBattery} onReorder={handleReorderSources} onSort={() => {}} />
           </section>
 
           <section>
             <h2 className="app-header-font text-[11px] text-slate-400 mb-4 uppercase">System Mgmt</h2>
-            <EnergyTable 
-              items={items} systemVoltage={battery.voltage}
-              highlightedId={highlightedRow?.kind === 'load' ? highlightedRow.id : null}
-              onUpdateItem={handleUpdateItem} onDeleteItem={handleDeleteItem}
-              onAddItem={handleAddItem} onAIAddItem={() => { setChatMode('load'); setChatOpen(true); }}
-              visibleCategories={[LoadCategory.SYSTEM_MGMT]}
-              onReorder={handleReorderItems} onSort={() => {}}
-            />
+            <EnergyTable items={items} systemVoltage={battery.voltage} highlightedId={highlightedRow?.kind === 'load' ? highlightedRow.id : null} onUpdateItem={handleUpdateItem} onDeleteItem={handleDeleteItem} onAddItem={handleAddItem} onAIAddItem={() => { setChatMode('load'); setChatOpen(true); }} visibleCategories={[LoadCategory.SYSTEM_MGMT]} onReorder={handleReorderItems} onSort={() => {}} />
           </section>
 
           <section>
             <h2 className="app-header-font text-[11px] text-slate-400 mb-4 uppercase">AC (VIA INVERTER)</h2>
-            <EnergyTable 
-              items={items} systemVoltage={battery.voltage}
-              highlightedId={highlightedRow?.kind === 'load' ? highlightedRow.id : null}
-              onUpdateItem={handleUpdateItem} onDeleteItem={handleDeleteItem}
-              onAddItem={handleAddItem} onAIAddItem={() => { setChatMode('load'); setChatOpen(true); }}
-              visibleCategories={[LoadCategory.AC_LOADS]}
-              onReorder={handleReorderItems} onSort={() => {}}
-            />
+            <EnergyTable items={items} systemVoltage={battery.voltage} highlightedId={highlightedRow?.kind === 'load' ? highlightedRow.id : null} onUpdateItem={handleUpdateItem} onDeleteItem={handleDeleteItem} onAddItem={handleAddItem} onAIAddItem={() => { setChatMode('load'); setChatOpen(true); }} visibleCategories={[LoadCategory.AC_LOADS]} onReorder={handleReorderItems} onSort={() => {}} />
           </section>
 
           <section>
             <h2 className="app-header-font text-[11px] text-slate-400 mb-4 uppercase">DC (NATIVE &/OR VIA CONVERTER)</h2>
-            <EnergyTable 
-              items={items} systemVoltage={battery.voltage}
-              highlightedId={highlightedRow?.kind === 'load' ? highlightedRow.id : null}
-              onUpdateItem={handleUpdateItem} onDeleteItem={handleDeleteItem}
-              onAddItem={handleAddItem} onAIAddItem={() => { setChatMode('load'); setChatOpen(true); }}
-              visibleCategories={[LoadCategory.DC_LOADS]}
-              onReorder={handleReorderItems} onSort={() => {}}
-            />
+            <EnergyTable items={items} systemVoltage={battery.voltage} highlightedId={highlightedRow?.kind === 'load' ? highlightedRow.id : null} onUpdateItem={handleUpdateItem} onDeleteItem={handleDeleteItem} onAddItem={handleAddItem} onAIAddItem={() => { setChatMode('load'); setChatOpen(true); }} visibleCategories={[LoadCategory.DC_LOADS]} onReorder={handleReorderItems} onSort={() => {}} />
           </section>
         </div>
-        <div className="w-full">
-          <div className="lg:sticky lg:top-32">
-            <SummaryPanel items={items} totals={totals} systemVoltage={battery.voltage} battery={battery} charging={charging} />
-          </div>
-        </div>
+        <div className="w-full"><div className="lg:sticky lg:top-32"><SummaryPanel items={items} totals={totals} systemVoltage={battery.voltage} battery={battery} charging={charging} /></div></div>
       </main>
 
-      <ChatBot 
-        items={items} totals={totals} battery={battery} charging={charging} isOpen={chatOpen} modeProp={chatMode} 
-        onOpen={() => { setChatMode('general'); setChatOpen(true); }} 
-        onClose={() => setChatOpen(false)}
-        onAddLoadItem={handleAIAddLoad} onAddChargingSource={handleAIAddSource}
-      />
+      <ChatBot items={items} totals={totals} battery={battery} charging={charging} isOpen={chatOpen} modeProp={chatMode} onOpen={() => { setChatMode('general'); setChatOpen(true); }} onClose={() => setChatOpen(false)} onAddLoadItem={handleAIAddLoad} onAddChargingSource={handleAIAddSource} />
     </div>
   );
 };

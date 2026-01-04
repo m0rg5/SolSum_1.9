@@ -22,38 +22,24 @@ export const normalizeAutoSolarHours = (battery: BatteryConfig): {
   fallbackValue: number 
 } => {
   const DEFAULT_FALLBACK = 4.0;
-
-  // INSTRUMENTATION (TEMP)
-  console.log('[AUTOH]', {
-    loading: battery.forecast?.loading, 
-    fetched: battery.forecast?.fetched, 
-    mode: battery.forecastMode, 
-    now: battery.forecast?.nowHours, 
-    sunny: battery.forecast?.sunnyHours
-  });
   
-  // 1. Missing forecast object
   if (!battery.forecast) {
     return { status: 'nodata', value: null, fallbackValue: DEFAULT_FALLBACK };
   }
   
-  // 2. Active loading state OR not yet fetched - MUST return null value to trigger fallback in physics
   if (battery.forecast.loading || !battery.forecast.fetched) {
     return { status: 'loading', value: null, fallbackValue: DEFAULT_FALLBACK };
   }
 
-  // 3. Null-safe data extraction
   const raw = battery.forecastMode === 'now' 
     ? battery.forecast?.nowHours 
     : battery.forecast?.sunnyHours;
 
-  // 4. Strict check for missingness (prevents Number("") or null/undefined from becoming 0)
   if (raw === undefined || raw === null || (raw as any) === '') {
     return { status: 'nodata', value: null, fallbackValue: DEFAULT_FALLBACK };
   }
   
   const val = Number(raw);
-  // 5. Physics sanity check (0 is allowed, but must be a finite number)
   if (!isFinite(val) || val < 0 || val > 15) {
     return { status: 'invalid', value: null, fallbackValue: DEFAULT_FALLBACK };
   }
@@ -61,29 +47,19 @@ export const normalizeAutoSolarHours = (battery: BatteryConfig): {
   return { status: 'ok', value: val, fallbackValue: val };
 };
 
-/**
- * Single Source of Truth for Solar Hours.
- * Priortizes deterministic forecast when AUTO is enabled.
- */
 export const getEffectiveSolarHours = (source: ChargingSource, battery: BatteryConfig): number => {
   const manualHours = Number(source.hours) || 0;
   const norm = normalizeAutoSolarHours(battery);
 
-  // 1. Auto Mode: Prioritize Forecast
   if (source.autoSolar && source.type === 'solar') {
     if (norm.status === 'ok' && norm.value !== null) return norm.value;
-    // Fallback if data invalid
     return manualHours > 0 ? manualHours : norm.fallbackValue;
   }
   
-  // 2. Manual Mode (Solar): Safety Fallback
-  // If a solar panel has 0 hours (common AI/User error), use standard fallback instead of 0Wh.
-  // User can still disable the item via the 'enabled' checkbox if they want it off.
   if (source.type === 'solar' && manualHours === 0) {
     return norm.fallbackValue;
   }
 
-  // 3. Other Modes / Manual Non-Solar
   return manualHours;
 };
 
@@ -130,7 +106,7 @@ export const calculateSystemTotals = (
     const efficiency = Number(source.efficiency) || 0.85;
     const qty = Number(source.quantity) || 1;
 
-    // Treat all input as Watts directly, ignoring 'unit' property
+    // STRICT: Input is Watts. NO VOLTAGE MULTIPLIER.
     dailyWhGenerated += (input * hours * efficiency * qty);
   });
 
@@ -161,49 +137,83 @@ export const calculateAutonomy = (
   charging: ChargingSource[],
   battery: BatteryConfig,
   scenario: 'current' | 'peak' | 'cloud' | 'zero',
-  solarForecast?: { sunny?: number, cloudy?: number, now?: number }
+  solarForecast?: { sunny?: number, cloudy?: number, now?: number },
+  currentSoC?: number
 ) => {
-  const totals = calculateSystemTotals(items, charging, battery);
-  const systemV = Number(battery.voltage) || 24;
-  const totalCapacityWh = (Number(battery.capacityAh) || 400) * systemV;
-  
-  let dailyWhConsumed = totals.dailyWhConsumed || 0;
-  let dailyWhGenerated = 0;
+  const systemVoltage = Number(battery.voltage) || 24;
+  let dailyWhConsumed = 0;
+  items.forEach(item => {
+    if (item.enabled === false) return;
+    const { wh } = calculateItemEnergy(item, systemVoltage);
+    dailyWhConsumed += (Number(wh) || 0);
+  });
 
-  if (scenario === 'current') {
-    dailyWhGenerated = totals.dailyWhGenerated;
-  } else if (scenario === 'zero') {
+  let dailyWhGenerated = 0;
+  
+  if (scenario === 'zero') {
     dailyWhGenerated = 0;
   } else {
     charging.forEach(source => {
       if (source.enabled === false) return;
+      
       let h = Number(source.hours) || 0;
+      
       if (source.type === 'solar') {
-        if (scenario === 'peak') h = solarForecast ? (solarForecast.sunny || 6.0) : 6.0;
-        if (scenario === 'cloud') h = solarForecast ? (solarForecast.cloudy || 1.5) : 1.5;
-      }
+        const manual = Number(source.hours) || 0;
+        const sunnyHours = (source.autoSolar && solarForecast?.sunny) ? solarForecast.sunny : (manual || 4.0);
+
+        if (scenario === 'peak') {
+           h = sunnyHours;
+        } else if (scenario === 'cloud') {
+           /**
+            * DHI / GHI Functional Model:
+            * 'CLOUD' represents functional production minimums.
+            * Partly Cloudy typically provides 50-75% output.
+            * Overcast typically provides 15-25% output.
+            * We use 50% as the default "Cloud" scenario to reflect functional resilience.
+            */
+           const partlyCloudyFactor = 0.50;
+           const overcastFloorFactor = 0.20;
+           
+           // Use the best available data between forecast and the 50% "Partly Cloudy" functional model.
+           const forecastCloudy = (source.autoSolar && solarForecast?.cloudy) ? solarForecast.cloudy : 0;
+           const functionalModel = sunnyHours * partlyCloudyFactor;
+           const physicsFloor = sunnyHours * overcastFloorFactor;
+
+           h = Math.max(forecastCloudy, functionalModel, physicsFloor);
+        } else if (scenario === 'current') {
+           h = getEffectiveSolarHours(source, battery);
+        }
+      } 
+      
       const input = Number(source.input) || 0;
       const efficiency = Number(source.efficiency) || 0.85;
       const qty = Number(source.quantity) || 1;
-      
-      // Treat input as Watts
       dailyWhGenerated += (input * h * efficiency * qty);
     });
   }
 
   const netWhPerDay = dailyWhGenerated - dailyWhConsumed;
-
-  if (netWhPerDay >= 0) {
-    return { days: Infinity, hours: Infinity, netWh: netWhPerDay };
-  }
+  if (netWhPerDay >= 0) return { days: Infinity, hours: Infinity, netWh: netWhPerDay };
 
   const dailyDeficitWh = Math.abs(netWhPerDay);
-  const totalRemainingWh = totalCapacityWh * (battery.initialSoC / 100);
-  const days = totalRemainingWh / dailyDeficitWh;
+  const totalCapacityWh = (Number(battery.capacityAh) || 400) * systemVoltage;
+  
+  /**
+   * Basis Logic:
+   * 'Realistic' shows time remaining at CURRENT SoC (Final SoC).
+   * 'Cloud' and '0%' show theoretical autonomy from FULL (100%) to represent System Buffer capacity.
+   */
+  const basisSoC = (scenario === 'current') 
+    ? (currentSoC !== undefined ? currentSoC : (battery.initialSoC || 100))
+    : 100;
+
+  const remainingWh = totalCapacityWh * (basisSoC / 100);
+  const days = remainingWh / dailyDeficitWh;
 
   return {
-    days: (isFinite(days) && days < 365) ? days : Infinity,
-    hours: (isFinite(days) && days < 365) ? days * 24 : Infinity,
+    days: (isFinite(days) && days < 9999) ? days : Infinity,
+    hours: (isFinite(days) && days < 9999) ? days * 24 : Infinity,
     netWh: netWhPerDay
   };
 };

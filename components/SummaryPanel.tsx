@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { PowerItem, SystemTotals, BatteryConfig, ChargingSource } from '../types';
 import { calculateAutonomy } from '../services/powerLogic';
@@ -21,7 +22,8 @@ const SummaryPanel: React.FC<SummaryPanelProps> = ({ totals, systemVoltage, item
       now: battery.forecast.nowHours
     } : undefined;
 
-    const { days, hours } = calculateAutonomy(items, charging, battery, scenario, forecast);
+    // Pass totals.finalSoC to ensure autonomy is calculated from the CURRENT state, not the start of the day.
+    const { days, hours } = calculateAutonomy(items, charging, battery, scenario, forecast, totals.finalSoC);
     
     let text = "";
     let textColor = "text-slate-400";

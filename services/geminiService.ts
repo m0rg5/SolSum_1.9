@@ -1,3 +1,4 @@
+
 // Use FunctionCallingConfigMode enum to satisfy the type requirement for tool configuration.
 import { GoogleGenAI, Type, Chat, FunctionCallingConfigMode } from "@google/genai";
 import { ChatMode } from "../types";
@@ -55,10 +56,9 @@ export const createChatSession = (mode: ChatMode): Chat => {
         3. For AC Loads (Inverter), focus on the item's plate wattage. The system automatically calculates conversion losses (efficiency curve).
         4. If a user asks for an inverter itself, suggest placing it in "System Mgmt" as a standby load.
         5. **SOLAR EFFICIENCY (Performance Ratio):**
-           - **Standard/Monofacial:** Use **0.85** (reflects system losses).
-           - **Bifacial (BF):** Use **0.95** (reflects 0.85 * 1.12 gain).
+           - **Standard/Monofacial:** Use **0.85**.
+           - **Bifacial (BF):** Use **0.95**.
            - **DETECTION:** Automatically apply 0.95 if the model contains: "Bifacial", "BF", "Bi-Glass", "Dual Glass", "N-Type", "Tiger Neo", "Deep Blue", "Hi-MO".
-           - **WARNING:** Do not use 0.20 (Module Efficiency). Use System Performance Ratio.
         6. Even if some data is missing, make a technical estimate and put assumptions in 'notes'.
         7. If the user mentions multiple items (e.g., "2 solar panels"), set 'quantity' accordingly.
         8. **POWER INPUT IS ALWAYS WATTS.** If the user provides Amps (e.g. "20A DC-DC Charger"), YOU MUST CALCULATE THE WATTS (Amps × System Voltage). Assume 24V if voltage is not specified in the prompt.
@@ -93,11 +93,11 @@ export const createChatSession = (mode: ChatMode): Chat => {
       1. Analyze [SYSTEM STATE CONTEXT] loads row by row.
       2. For each load, calculate Amps (Watts / Bus Voltage).
       3. Suggest AWG or mm² sizes based on typical 3% voltage drop standards for off-grid.
-      4. CATEGORY GUIDELINES:
-         - Main Battery Cables: Size for Max Inverter Burst + DC Bus.
-         - AC Loads: These run through Inverter; size the Inverter-to-Battery cable heavily (e.g., 0000 AWG for 3000W).
-         - Solar: Size for VOC and Imp with 1.25x safety factor for NEC compliance.
-         - DC Loads: Size individual branch circuits (e.g. 10AWG for high-power DC A/C).
+      4. **HARDWARE-SPECIFIC RECOMMENDATIONS:**
+         - **Inverter Path (e.g., 3000-4000W):** 0000 AWG (95mm²) with 250A ANL Fuse.
+         - **DC Air Con (e.g., 40-50A):** 6 AWG (16mm²) with 50A Breaker.
+         - **Induction Cooker (e.g., 1800W+):** 2 AWG (35mm²) with 125A Fuse.
+         - **Solar:** Size for VOC/Imp + 1.25x safety factor.
       5. Include Fuse/Breaker recommendations for each major circuit.
       6. Mention that actual sizing depends on cable length (distance).`,
       responseMimeType: "application/json",
