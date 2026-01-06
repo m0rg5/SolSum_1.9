@@ -161,6 +161,9 @@ export const calculateAutonomy = (
       if (source.type === 'solar') {
         const manual = Number(source.hours) || 0;
         
+        // ALIGNMENT FIX: Strictly align the scenario baseline with the active forecast mode.
+        // If mode is 'Now', 'Cloud' is a degradation of 'Now'.
+        // If mode is 'MonthAvg', 'Cloud' is a degradation of 'MonthAvg Sunny'.
         let baselineHours = manual || 4.0;
         
         if (source.autoSolar && solarForecast) {
@@ -177,16 +180,17 @@ export const calculateAutonomy = (
            /**
             * DHI / GHI Functional Model:
             * 'Cloud' scenario represents functional resilience in diffuse light.
-            * Updated to 60% (Partly Cloudy) to represent realistic DHI contribution
-            * rather than a pessimistic 50% floor.
-            * "100% cloud cover still provides 15%–25%... Partly Cloudy provides 50%–75%".
+            * We use a 50% factor (Partly Cloudy) applied to the CURRENT active baseline.
+            * This ensures consistency: if 'Realistic' (Now) is great, 'Cloud' (Now + Clouds) should track it.
             */
-           const partlyCloudyFactor = 0.60;
+           const partlyCloudyFactor = 0.50;
            const overcastFloorFactor = 0.20;
            
            const functionalModel = baselineHours * partlyCloudyFactor;
            const physicsFloor = baselineHours * overcastFloorFactor;
 
+           // We only check forecastCloudy if we are in MonthAvg mode, as it represents typical bad days for the month.
+           // In 'Now' mode, we are simulating immediate cloud cover relative to current potential.
            const forecastCloudy = (battery.forecastMode !== 'now' && solarForecast?.cloudy) ? solarForecast.cloudy : 0;
 
            h = Math.max(forecastCloudy, functionalModel, physicsFloor);
@@ -210,11 +214,12 @@ export const calculateAutonomy = (
   
   /**
    * Basis Logic:
-   * ALL Scenarios now respect the CURRENT SoC (Final SoC) if provided.
-   * This ensures the Dashboard consistently answers: "From where I am NOW, how long do I last?"
-   * Fallback to Initial SoC or 100 if current is unavailable.
+   * 'Realistic' shows time remaining at CURRENT SoC (Final SoC).
+   * 'Cloud' and '0%' show theoretical autonomy from FULL (100%) to represent System Buffer capacity.
    */
-  const basisSoC = (currentSoC !== undefined) ? currentSoC : (battery.initialSoC || 100);
+  const basisSoC = (scenario === 'current') 
+    ? (currentSoC !== undefined ? currentSoC : (battery.initialSoC || 100))
+    : 100;
 
   const remainingWh = totalCapacityWh * (basisSoC / 100);
   const days = remainingWh / dailyDeficitWh;
