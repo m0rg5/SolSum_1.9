@@ -160,25 +160,34 @@ export const calculateAutonomy = (
       
       if (source.type === 'solar') {
         const manual = Number(source.hours) || 0;
-        const sunnyHours = (source.autoSolar && solarForecast?.sunny) ? solarForecast.sunny : (manual || 4.0);
+        
+        let baselineHours = manual || 4.0;
+        
+        if (source.autoSolar && solarForecast) {
+             if (battery.forecastMode === 'now' && solarForecast.now !== undefined) {
+                 baselineHours = solarForecast.now;
+             } else if (solarForecast.sunny !== undefined) {
+                 baselineHours = solarForecast.sunny;
+             }
+        }
 
         if (scenario === 'peak') {
-           h = sunnyHours;
+           h = baselineHours;
         } else if (scenario === 'cloud') {
            /**
             * DHI / GHI Functional Model:
-            * 'CLOUD' represents functional production minimums.
-            * Partly Cloudy typically provides 50-75% output.
-            * Overcast typically provides 15-25% output.
-            * We use 50% as the default "Cloud" scenario to reflect functional resilience.
+            * 'Cloud' scenario represents functional resilience in diffuse light.
+            * Updated to 60% (Partly Cloudy) to represent realistic DHI contribution
+            * rather than a pessimistic 50% floor.
+            * "100% cloud cover still provides 15%–25%... Partly Cloudy provides 50%–75%".
             */
-           const partlyCloudyFactor = 0.50;
+           const partlyCloudyFactor = 0.60;
            const overcastFloorFactor = 0.20;
            
-           // Use the best available data between forecast and the 50% "Partly Cloudy" functional model.
-           const forecastCloudy = (source.autoSolar && solarForecast?.cloudy) ? solarForecast.cloudy : 0;
-           const functionalModel = sunnyHours * partlyCloudyFactor;
-           const physicsFloor = sunnyHours * overcastFloorFactor;
+           const functionalModel = baselineHours * partlyCloudyFactor;
+           const physicsFloor = baselineHours * overcastFloorFactor;
+
+           const forecastCloudy = (battery.forecastMode !== 'now' && solarForecast?.cloudy) ? solarForecast.cloudy : 0;
 
            h = Math.max(forecastCloudy, functionalModel, physicsFloor);
         } else if (scenario === 'current') {
@@ -201,12 +210,11 @@ export const calculateAutonomy = (
   
   /**
    * Basis Logic:
-   * 'Realistic' shows time remaining at CURRENT SoC (Final SoC).
-   * 'Cloud' and '0%' show theoretical autonomy from FULL (100%) to represent System Buffer capacity.
+   * ALL Scenarios now respect the CURRENT SoC (Final SoC) if provided.
+   * This ensures the Dashboard consistently answers: "From where I am NOW, how long do I last?"
+   * Fallback to Initial SoC or 100 if current is unavailable.
    */
-  const basisSoC = (scenario === 'current') 
-    ? (currentSoC !== undefined ? currentSoC : (battery.initialSoC || 100))
-    : 100;
+  const basisSoC = (currentSoC !== undefined) ? currentSoC : (battery.initialSoC || 100);
 
   const remainingWh = totalCapacityWh * (basisSoC / 100);
   const days = remainingWh / dailyDeficitWh;

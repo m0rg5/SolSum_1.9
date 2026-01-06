@@ -10,8 +10,8 @@ import SummaryPanel from './components/SummaryPanel';
 import ChatBot from './components/ChatBot';
 import HeaderGraph from './components/HeaderGraph';
 
-const STORAGE_KEY = "solsum_state_v2_1";
-const STORAGE_SCHEMA_VERSION = "2.1";
+const STORAGE_KEY = "solsum_state_v2_3";
+const STORAGE_SCHEMA_VERSION = "2.3";
 const FORECAST_TTL_MS = 6 * 60 * 60 * 1000; // 6 hours
 
 const App: React.FC = () => {
