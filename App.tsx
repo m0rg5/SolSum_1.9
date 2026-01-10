@@ -3,20 +3,25 @@ import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react'
 import { INITIAL_DATA, INITIAL_CHARGING, INITIAL_BATTERY } from './constants';
 import { PowerItem, ChargingSource, BatteryConfig, LoadCategory, ChatMode, AppStateExport } from './types';
 import { calculateSystemTotals, calculateItemEnergy, getEffectiveSolarHours } from './services/powerLogic';
-import { geocodeLocation, fetchNowSolarPSH, fetchMonthAvgSolarPSH } from './services/weatherService';
+import { geocodeLocation, fetchNowSolarPSH, fetchMonthAvgSolarPSH, searchLocations, LatLon } from './services/weatherService';
 import EnergyTable from './components/EnergyTable';
 import ChargingTable from './components/ChargingTable';
 import SummaryPanel from './components/SummaryPanel';
 import ChatBot from './components/ChatBot';
 import HeaderGraph from './components/HeaderGraph';
 
-const STORAGE_KEY = "solsum_state_v2_2";
-const STORAGE_SCHEMA_VERSION = "2.2";
+const STORAGE_KEY = "solsum_state_v2_8";
+const STORAGE_SCHEMA_VERSION = "2.8";
 const FORECAST_TTL_MS = 6 * 60 * 60 * 1000; // 6 hours
 
 const App: React.FC = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [hasHydrated, setHasHydrated] = useState(false);
+
+  // Autocomplete State
+  const [suggestions, setSuggestions] = useState<LatLon[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const getSavedData = () => {
     try {
@@ -96,40 +101,95 @@ const App: React.FC = () => {
 
   const totals = useMemo(() => calculateSystemTotals(items, charging, battery), [items, charging, battery]);
 
+  // Handle Location Typing & Search
+  const handleLocationChange = (val: string) => {
+    // Update location text, BUT clear specific 'geo' so we don't rely on old cached coords for new text
+    setBattery(prev => ({ ...prev, location: val, geo: undefined }));
+    setShowSuggestions(true);
+
+    if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+    
+    searchTimeoutRef.current = setTimeout(async () => {
+      if (val.length < 2) {
+        setSuggestions([]);
+        return;
+      }
+      const results = await searchLocations(val);
+      setSuggestions(results);
+    }, 400);
+  };
+
+  const handleSelectLocation = (loc: LatLon) => {
+    setBattery(prev => ({
+      ...prev,
+      location: loc.name,
+      geo: { lat: loc.lat, lon: loc.lon, name: loc.name }
+    }));
+    setShowSuggestions(false);
+  };
+
   useEffect(() => {
+    // 1. Immediate loading state.
+    setBattery(prev => ({ 
+      ...prev, 
+      forecast: { 
+        ...(prev.forecast || { fetched: false }), 
+        loading: true, 
+        error: undefined 
+      } 
+    }));
+
     const updateForecast = async () => {
       if (!battery.location || battery.location.length < 1) return;
-      setBattery(prev => ({ 
-        ...prev, 
-        forecast: { 
-          ...(prev.forecast || { fetched: false }), 
-          loading: true, 
-          error: undefined 
-        } 
-      }));
+      
       try {
-        const geo = await geocodeLocation(battery.location);
-        if (!geo) throw new Error("Location not found");
+        let lat, lon, name;
+
+        // PRIORITIZE EXACT GEO IF AVAILABLE (from Dropdown Selection)
+        if (battery.geo && battery.geo.lat) {
+             lat = battery.geo.lat;
+             lon = battery.geo.lon;
+             name = battery.geo.name;
+        } else {
+             // Fallback to text search (legacy or manual typing)
+             const geo = await geocodeLocation(battery.location);
+             if (!geo) throw new Error("Location not found");
+             lat = geo.lat;
+             lon = geo.lon;
+             name = geo.name;
+        }
+        
         let forecastData: any = {};
+        
         if (battery.forecastMode === 'now') {
-          const nowPSH = await fetchNowSolarPSH(geo.lat, geo.lon);
-          forecastData = { nowHours: nowPSH };
+          const nowPSH = await fetchNowSolarPSH(lat, lon);
+          forecastData = { 
+            nowHours: nowPSH, 
+            sunnyHours: undefined, 
+            cloudyHours: undefined 
+          };
         } else {
           const apiMonth = (battery.forecastMonth || '').split('-').slice(0, 2).join('-');
-          const monthPSH = await fetchMonthAvgSolarPSH(geo.lat, geo.lon, apiMonth);
-          forecastData = { sunnyHours: monthPSH.sunny, cloudyHours: monthPSH.cloudy };
+          const monthPSH = await fetchMonthAvgSolarPSH(lat, lon, apiMonth);
+          forecastData = { 
+            sunnyHours: monthPSH.sunny, 
+            cloudyHours: monthPSH.cloudy, 
+            nowHours: undefined 
+          };
         }
+
         setBattery(prev => ({ 
           ...prev, 
           forecast: { 
             ...(prev.forecast || { fetched: false }),
             ...forecastData,
-            lat: geo.lat,
-            lon: geo.lon,
+            name: name,
+            lat: lat,
+            lon: lon,
             loading: false,
             fetched: true,
             updatedAt: new Date().toISOString()
-          } 
+          } as any
         }));
       } catch (e: any) {
         setBattery(prev => ({ 
@@ -142,9 +202,11 @@ const App: React.FC = () => {
         }));
       }
     };
-    const timer = setTimeout(updateForecast, 1000);
+    
+    // Slightly longer debounce to allow typing to finish if not using dropdown
+    const timer = setTimeout(updateForecast, 800);
     return () => clearTimeout(timer);
-  }, [battery.location, battery.forecastMode, battery.forecastMonth]);
+  }, [battery.location, battery.geo, battery.forecastMode, battery.forecastMonth]);
 
   const handleUpdateItem = useCallback((id: string, field: keyof PowerItem, value: any) => {
     setItems(prev => prev.map(item => item.id === id ? { ...item, [field]: value } : item));
@@ -256,7 +318,7 @@ const App: React.FC = () => {
   const netKwh = totals.netWh / 1000;
   
   return (
-    <div className="min-h-screen bg-slate-900 text-slate-100 flex flex-col font-sans app-root">
+    <div className="min-h-screen bg-slate-900 text-slate-100 flex flex-col font-sans app-root" onClick={() => setShowSuggestions(false)}>
       <header className="bg-slate-950 border-b border-slate-800 sticky top-0 z-40 shadow-2xl pb-3 pt-2.5">
         <div className="max-w-[98%] mx-auto flex flex-col lg:flex-row items-center justify-between px-6 gap-6">
           <div className="flex items-center gap-3 shrink-0">
@@ -283,9 +345,28 @@ const App: React.FC = () => {
         <div className="space-y-6 min-w-0">
           <section className="pb-0">
             <div className="flex flex-wrap md:flex-nowrap gap-2.5 items-stretch">
-              <div className="flex-1 min-w-[110px] bg-slate-900 p-[7px] rounded-lg border border-slate-800 ring-1 ring-white/5 shadow-inner flex flex-col justify-center">
+              <div className="flex-1 min-w-[110px] bg-slate-900 p-[7px] rounded-lg border border-slate-800 ring-1 ring-white/5 shadow-inner flex flex-col justify-center relative" onClick={(e) => e.stopPropagation()}>
                 <label className="config-label-small uppercase text-slate-600 font-black block mb-0.5 tracking-widest">LOCATION</label>
-                <input type="text" value={battery.location || ''} onChange={(e) => handleUpdateBattery('location', e.target.value)} placeholder="e.g. 2048" className="bg-transparent border-none w-full text-slate-200 font-mono config-input-small focus:ring-0 font-black outline-none p-0" />
+                <input 
+                  type="text" 
+                  value={battery.location || ''} 
+                  onChange={(e) => handleLocationChange(e.target.value)} 
+                  onFocus={() => { if(battery.location && battery.location.length > 1) setShowSuggestions(true); }}
+                  placeholder="e.g. 2048" 
+                  className="bg-transparent border-none w-full text-slate-200 font-mono config-input-small focus:ring-0 font-black outline-none p-0" 
+                />
+                <div className="text-[9px] text-slate-500 font-mono truncate mt-0.5 min-h-[12px]">{(battery.forecast as any)?.name || '---'}</div>
+                
+                {showSuggestions && suggestions.length > 0 && (
+                  <ul className="absolute top-full left-0 w-[180%] bg-slate-800 border border-slate-700 rounded-b-lg shadow-xl z-50 max-h-40 overflow-y-auto mt-1 no-scrollbar">
+                    {suggestions.map((s, i) => (
+                       <li key={i} onClick={() => handleSelectLocation(s)} className="text-[10px] p-2 hover:bg-slate-700 cursor-pointer text-slate-200 border-b border-slate-700/50 last:border-0">
+                         <div className="font-bold">{s.name}</div>
+                         <div className="text-slate-500 text-[8px]">{[s.admin1, s.country].filter(Boolean).join(', ')}</div>
+                       </li>
+                    ))}
+                  </ul>
+                )}
               </div>
 
               <div className="flex-1 min-w-[90px] bg-slate-900 p-[7px] rounded-lg border border-slate-800 ring-1 ring-white/5 shadow-inner flex flex-col justify-center relative group">

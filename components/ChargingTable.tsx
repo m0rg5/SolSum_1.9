@@ -154,6 +154,7 @@ const ChargingTable: React.FC<ChargingTableProps> = ({
             
             const norm = normalizeAutoSolarHours(battery);
             const isAutoErr = source.autoSolar && (norm.status === 'invalid' || norm.status === 'nodata');
+            const isLoading = source.autoSolar && battery.forecast?.loading;
               
             return (
               <tr key={source.id} className={`hover:bg-slate-800/40 transition-all duration-700 group ${draggedId === source.id ? 'opacity-20 scale-[0.98]' : ''} ${managementItem ? 'bg-slate-900/40 opacity-60' : ''} ${isHighlighted ? 'bg-purple-900/40 border-purple-500/50 shadow-[inset_0_0_20px_rgba(168,85,247,0.1)] ring-1 ring-purple-500/30' : ''} ${isDisabled ? 'opacity-40 grayscale' : ''}`}
@@ -219,8 +220,13 @@ const ChargingTable: React.FC<ChargingTableProps> = ({
                     />
                     <span className="text-[7px] text-slate-500 font-black uppercase shrink-0">H</span>
                   </div>
-                  {isAutoErr && (
+                  {isAutoErr && !isLoading && (
                     <div className="absolute -top-1 right-0.5 bg-rose-500 text-white text-[5px] font-black px-1 rounded animate-pulse">AUTO ERR</div>
+                  )}
+                  {isLoading && (
+                    <div className="absolute inset-0 bg-slate-900/80 flex items-center justify-center">
+                       <div className="w-3 h-3 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                    </div>
                   )}
                 </td>
                 <td className="px-1 py-1 text-right">

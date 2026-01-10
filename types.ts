@@ -41,6 +41,7 @@ export interface SolarForecast {
   error?: string;
   lat?: number;
   lon?: number;
+  name?: string;
 }
 
 export interface BatteryConfig {
@@ -48,6 +49,11 @@ export interface BatteryConfig {
   voltage: number;
   initialSoC: number;
   location: string;
+  geo?: {
+    lat: number;
+    lon: number;
+    name: string;
+  };
   forecastMode: 'now' | 'monthAvg';
   forecastMonth?: string; // YYYY-MM-DD
   forecast?: SolarForecast;
