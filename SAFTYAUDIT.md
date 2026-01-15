@@ -1,21 +1,14 @@
 # SAFTYAUDIT.md
-Snapshot: 2024-05-22
+Snapshot: 2024-05-23
 
-## 1. Current Logic Status
-- **File:** `services/powerLogic.ts`
-- **Function:** `getEffectiveSolarHours`
-- **"AUTO ERR" Badge Condition:** `(norm.status === 'invalid' || norm.status === 'nodata')`
-- **Hours Displayed:** `norm.status === 'ok' ? norm.value : (manualHours > 0 ? manualHours : 4.0)`
+## 1. Resolved: The 1.4H Seasonal Bug
+- **Issue**: "2048" was resolving to a US Zip code, returning Northern Hemisphere (Winter) PSH values (~1.4h) instead of Southern Hemisphere (Summer) values (~8.0h).
+- **Resolution**: Implemented `searchLocations` with a 4-digit regex that appends ", Australia" to queries. Added `geo` caching in `BatteryConfig` to lock specific coordinates.
 
-## 2. Root Cause Identification
-1. **Empty String Coercion:** `Number("")` evaluates to `0`. If the API or state contains an empty string, the system interprets it as 'Zero Sun' (Valid OK) rather than 'No Data' (Error).
-2. **Missing Metadata Guard:** The badge logic correctly masks errors during loading, but the displayed value depends on a shared normalization result that requires strict type checking.
+## 2. Resolved: Forecast Volatility
+- **Issue**: A single rainy day forecast would crash the "Realistic" autonomy projection.
+- **Resolution**: `fetchNowSolarPSH` now requests `forecast_days=3` and returns the arithmetic mean.
 
-## 3. Fix Logic
-- Explicitly reject empty strings in `normalizeAutoSolarHours` using a runtime check.
-- Use `isFinite` to ensure `NaN` or non-numeric values are treated as `invalid`.
-- Maintain `0.0` as valid ONLY if it is a finite numeric result that is NOT an empty string.
-
-## 4. Physics Invariants
-- **INVARIANT:** `norm.status !== 'ok'` must never feed physics without an explicit fallback path. 
-- **ENFORCEMENT:** `normalizeAutoSolarHours` returns `value: null` when not `'ok'`, forcing the consumption logic (`getEffectiveSolarHours`) to handle fallbacks (Manual > 0 or 4.0h).
+## 3. Input Validation
+- **Logic**: `normalizeAutoSolarHours` now strictly rejects empty strings and non-finite numbers.
+- **Fallback**: System defaults to 4.0h PSH only if the API response is null/invalid. 0.0h is allowed if it is a valid numeric return (e.g., total darkness).

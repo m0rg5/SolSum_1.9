@@ -2,13 +2,12 @@
 
 | Feature | Status | Evidence | Location |
 | :--- | :--- | :--- | :--- |
-| **Persistence** | OK | Items survive reload | `App.tsx` (useEffect) |
-| **Chat Rendering** | OK | Restored V2 Rendering | `ChatBot.tsx` |
+| **Persistence** | OK | Items & EXACT Coordinates survive reload | `App.tsx` (useEffect) |
+| **Chat Rendering** | OK | Restored V2 Rendering + Spec Asst Modal | `ChatBot.tsx` |
 | **JSON Protocol** | OK | Verified in ChatBot parser | `ChatBot.tsx` |
-| **Autonomy Math** | OK | Fix applied (Infinity logic) | `services/powerLogic.ts` |
-| **Spec Asst UI** | OK | Purple Modal Active | `ChatBot.tsx` |
-| **Component Load** | OK | SummaryPanel Restored | `components/SummaryPanel.tsx` |
-| **SA Triggers** | ACCEPTED | + trigger removed intentionally; Spec Asst trigger is via Spec Asst buttons | `components/EnergyTable.tsx` |
-| **SA UX** | OK | Modal visual parity restored (v1.4 spec) | `ChatBot.tsx` |
-| **SA Categories** | OK | Schema relaxed & normalized in App logic | `geminiService.ts` / `App.tsx` |
+| **Autonomy Math** | OK | Projections use Final SoC for "Realistic" | `services/powerLogic.ts` |
+| **Location Logic** | FIXED | Autocomplete + Exact Lat/Lon Caching | `weatherService.ts` / `App.tsx` |
+| **1.4H Bug Fix** | FIXED | 3-day Average + AU Geocoding Bias | `weatherService.ts` |
+| **Toggle UI** | FIXED | Date inputs grey out when "NOW" active | `App.tsx` |
+| **Spec Asst UX** | OK | Purple Modal Active with confirmation loop | `ChatBot.tsx` |
 | **Category Rename** | OK | System Overhead -> System Mgmt | `types.ts` / `App.tsx` |
