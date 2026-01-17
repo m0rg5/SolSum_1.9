@@ -10,8 +10,8 @@ import SummaryPanel from './components/SummaryPanel';
 import ChatBot from './components/ChatBot';
 import HeaderGraph from './components/HeaderGraph';
 
-const STORAGE_KEY = "solsum_state_v2_8";
-const STORAGE_SCHEMA_VERSION = "2.8";
+const STORAGE_KEY = "solsum_state_v2_9";
+const STORAGE_SCHEMA_VERSION = "2.9";
 const FORECAST_TTL_MS = 6 * 60 * 60 * 1000; // 6 hours
 
 const App: React.FC = () => {
@@ -103,7 +103,6 @@ const App: React.FC = () => {
 
   // Handle Location Typing & Search
   const handleLocationChange = (val: string) => {
-    // Update location text, BUT clear specific 'geo' so we don't rely on old cached coords for new text
     setBattery(prev => ({ ...prev, location: val, geo: undefined }));
     setShowSuggestions(true);
 
@@ -116,20 +115,20 @@ const App: React.FC = () => {
       }
       const results = await searchLocations(val);
       setSuggestions(results);
-    }, 400);
+    }, 300);
   };
 
   const handleSelectLocation = (loc: LatLon) => {
+    const fullName = [loc.name, loc.admin1, loc.country].filter(Boolean).join(', ');
     setBattery(prev => ({
       ...prev,
-      location: loc.name,
-      geo: { lat: loc.lat, lon: loc.lon, name: loc.name }
+      location: fullName,
+      geo: { lat: loc.lat, lon: loc.lon, name: fullName }
     }));
     setShowSuggestions(false);
   };
 
   useEffect(() => {
-    // 1. Immediate loading state.
     setBattery(prev => ({ 
       ...prev, 
       forecast: { 
@@ -144,14 +143,11 @@ const App: React.FC = () => {
       
       try {
         let lat, lon, name;
-
-        // PRIORITIZE EXACT GEO IF AVAILABLE (from Dropdown Selection)
         if (battery.geo && battery.geo.lat) {
              lat = battery.geo.lat;
              lon = battery.geo.lon;
              name = battery.geo.name;
         } else {
-             // Fallback to text search (legacy or manual typing)
              const geo = await geocodeLocation(battery.location);
              if (!geo) throw new Error("Location not found");
              lat = geo.lat;
@@ -160,22 +156,13 @@ const App: React.FC = () => {
         }
         
         let forecastData: any = {};
-        
         if (battery.forecastMode === 'now') {
           const nowPSH = await fetchNowSolarPSH(lat, lon);
-          forecastData = { 
-            nowHours: nowPSH, 
-            sunnyHours: undefined, 
-            cloudyHours: undefined 
-          };
+          forecastData = { nowHours: nowPSH, sunnyHours: undefined, cloudyHours: undefined };
         } else {
           const apiMonth = (battery.forecastMonth || '').split('-').slice(0, 2).join('-');
           const monthPSH = await fetchMonthAvgSolarPSH(lat, lon, apiMonth);
-          forecastData = { 
-            sunnyHours: monthPSH.sunny, 
-            cloudyHours: monthPSH.cloudy, 
-            nowHours: undefined 
-          };
+          forecastData = { sunnyHours: monthPSH.sunny, cloudyHours: monthPSH.cloudy, nowHours: undefined };
         }
 
         setBattery(prev => ({ 
@@ -194,16 +181,11 @@ const App: React.FC = () => {
       } catch (e: any) {
         setBattery(prev => ({ 
           ...prev, 
-          forecast: { 
-            ...(prev.forecast || { fetched: false }), 
-            loading: false, 
-            error: e.message 
-          } 
+          forecast: { ...(prev.forecast || { fetched: false }), loading: false, error: e.message } 
         }));
       }
     };
     
-    // Slightly longer debounce to allow typing to finish if not using dropdown
     const timer = setTimeout(updateForecast, 800);
     return () => clearTimeout(timer);
   }, [battery.location, battery.geo, battery.forecastMode, battery.forecastMonth]);
@@ -324,8 +306,8 @@ const App: React.FC = () => {
           <div className="flex items-center gap-3 shrink-0">
              <div className="text-[40px] leading-none">☀️</div>
              <div>
-                <h1 className="app-header-font text-[1.6rem] text-white">Sol Sum</h1>
-                <p className="text-slate-500 text-[8px] font-semibold uppercase tracking-[0.1em] mt-0.5">Solar Calc & Planner</p>
+                <h1 className="app-header-font text-[1.4rem] text-white">Sol Sum</h1>
+                <p className="text-slate-500 text-[8px] font-black uppercase tracking-[0.2em] mt-0.5">Solar Calc & Planner</p>
              </div>
           </div>
           <div className="hidden md:block flex-1 max-w-xl px-8">
@@ -345,24 +327,31 @@ const App: React.FC = () => {
         <div className="space-y-6 min-w-0">
           <section className="pb-0">
             <div className="flex flex-wrap md:flex-nowrap gap-2.5 items-stretch">
-              <div className="flex-1 min-w-[110px] bg-slate-900 p-[7px] rounded-lg border border-slate-800 ring-1 ring-white/5 shadow-inner flex flex-col justify-center relative" onClick={(e) => e.stopPropagation()}>
+              <div className="flex-1 min-w-[150px] bg-slate-900 p-[7px] rounded-lg border border-slate-800 ring-1 ring-white/5 shadow-inner flex flex-col justify-center relative" onClick={(e) => e.stopPropagation()}>
                 <label className="config-label-small uppercase text-slate-600 font-black block mb-0.5 tracking-widest">LOCATION</label>
-                <input 
-                  type="text" 
-                  value={battery.location || ''} 
-                  onChange={(e) => handleLocationChange(e.target.value)} 
-                  onFocus={() => { if(battery.location && battery.location.length > 1) setShowSuggestions(true); }}
-                  placeholder="e.g. 2048" 
-                  className="bg-transparent border-none w-full text-slate-200 font-mono config-input-small focus:ring-0 font-black outline-none p-0" 
-                />
+                <div className="flex items-center gap-2 relative">
+                  <input 
+                    type="text" 
+                    value={battery.location || ''} 
+                    onChange={(e) => handleLocationChange(e.target.value)} 
+                    onFocus={() => { if(battery.location && battery.location.length > 1) setShowSuggestions(true); }}
+                    placeholder="Search suburb..." 
+                    className="bg-transparent border-none w-full text-slate-200 font-mono config-input-small focus:ring-0 font-bold outline-none p-0 placeholder-slate-700" 
+                  />
+                  {battery.location && (
+                    <button onClick={() => handleLocationChange('')} className="p-0.5 text-slate-600 hover:text-rose-400 transition-colors">
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-3 h-3"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
+                    </button>
+                  )}
+                </div>
                 <div className="text-[9px] text-slate-500 font-mono truncate mt-0.5 min-h-[12px]">{(battery.forecast as any)?.name || '---'}</div>
                 
                 {showSuggestions && suggestions.length > 0 && (
-                  <ul className="absolute top-full left-0 w-[180%] bg-slate-800 border border-slate-700 rounded-b-lg shadow-xl z-50 max-h-40 overflow-y-auto mt-1 no-scrollbar">
+                  <ul className="absolute top-full left-0 w-full bg-slate-900/95 backdrop-blur-xl border border-slate-700 rounded-lg shadow-2xl z-[100] max-h-56 overflow-y-auto mt-2 no-scrollbar animate-fade-in">
                     {suggestions.map((s, i) => (
-                       <li key={i} onClick={() => handleSelectLocation(s)} className="text-[10px] p-2 hover:bg-slate-700 cursor-pointer text-slate-200 border-b border-slate-700/50 last:border-0">
+                       <li key={i} onClick={() => handleSelectLocation(s)} className="text-[11px] p-3 hover:bg-blue-600/20 cursor-pointer text-slate-200 border-b border-slate-800 last:border-0 transition-colors">
                          <div className="font-bold">{s.name}</div>
-                         <div className="text-slate-500 text-[8px]">{[s.admin1, s.country].filter(Boolean).join(', ')}</div>
+                         <div className="text-slate-500 text-[9px] uppercase tracking-tighter mt-0.5">{[s.admin1, s.country].filter(Boolean).join(', ')}</div>
                        </li>
                     ))}
                   </ul>
@@ -386,16 +375,7 @@ const App: React.FC = () => {
                           handleUpdateBattery('forecastMonth', `${parts[0]}-${val}-${parts[2] || '01'}`);
                        }
                      }}
-                     onBlur={(e) => {
-                       let val = e.target.value;
-                       if (val.length === 1) val = '0' + val;
-                       if (val === '00' || val === '') val = '01';
-                       if (Number(val) > 12) val = '12';
-                       const cur = battery.forecastMonth || `${new Date().getFullYear()}-01-01`;
-                       const parts = cur.split('-');
-                       handleUpdateBattery('forecastMonth', `${parts[0]}-${val}-${parts[2] || '01'}`);
-                     }}
-                     className="bg-transparent text-slate-200 font-mono config-input-small font-black w-[24px] text-center focus:outline-none focus:text-blue-400 placeholder-slate-700 p-0" />
+                     className="bg-transparent text-slate-200 font-mono config-input-small font-bold w-[24px] text-center focus:outline-none focus:text-blue-400 placeholder-slate-800 p-0" />
                    <span className="text-slate-600 font-black select-none">/</span>
                    <input type="text" placeholder="YY" maxLength={2} value={battery.forecastMonth?.split('-')[0].slice(2) || ''} onChange={(e) => {
                         const val = e.target.value.replace(/\D/g, '');
@@ -405,22 +385,14 @@ const App: React.FC = () => {
                            handleUpdateBattery('forecastMonth', `20${val}-${parts[1] || '01'}-${parts[2] || '01'}`);
                         }
                      }}
-                     onBlur={(e) => {
-                        let val = e.target.value;
-                        if (val.length === 1) val = '0' + val;
-                        if (val === '') val = new Date().getFullYear().toString().slice(2);
-                        const cur = battery.forecastMonth || `${new Date().getFullYear()}-01-01`;
-                        const parts = cur.split('-');
-                        handleUpdateBattery('forecastMonth', `20${val}-${parts[1] || '01'}-${parts[2] || '01'}`);
-                     }}
-                     className="bg-transparent text-slate-200 font-mono config-input-small font-black w-[24px] text-center focus:outline-none focus:text-blue-400 placeholder-slate-700 p-0" />
+                     className="bg-transparent text-slate-200 font-mono config-input-small font-bold w-[24px] text-center focus:outline-none focus:text-blue-400 placeholder-slate-800 p-0" />
                     {battery.forecast?.loading && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-blue-400 animate-bounce"></div>}
                 </div>
               </div>
 
               <div className="flex-1 min-w-[70px] bg-slate-900 p-[7px] rounded-lg border border-slate-800 ring-1 ring-white/5 shadow-inner flex flex-col justify-center">
                 <label className="config-label-small uppercase text-slate-600 font-black block mb-0.5 tracking-widest">VOLTAGE</label>
-                <select value={battery.voltage} onChange={(e) => handleUpdateBattery('voltage', Number(e.target.value))} className="bg-transparent border-none w-full text-slate-200 font-mono config-input-small focus:ring-0 font-black outline-none p-0 cursor-pointer">
+                <select value={battery.voltage} onChange={(e) => handleUpdateBattery('voltage', Number(e.target.value))} className="bg-transparent border-none w-full text-slate-200 font-mono config-input-small focus:ring-0 font-bold outline-none p-0 cursor-pointer">
                   <option value={12} className="bg-slate-900 text-slate-200">12V</option>
                   <option value={24} className="bg-slate-900 text-slate-200">24V</option>
                   <option value={48} className="bg-slate-900 text-slate-200">48V</option>
@@ -429,12 +401,12 @@ const App: React.FC = () => {
 
               <div className="flex-1 min-w-[70px] bg-slate-900 p-[7px] rounded-lg border border-slate-800 ring-1 ring-white/5 shadow-inner flex flex-col justify-center">
                 <label className="config-label-small uppercase text-slate-600 font-black block mb-0.5 tracking-widest">BATTERY AH</label>
-                <input type="number" value={battery.capacityAh} onChange={(e) => handleUpdateBattery('capacityAh', Number(e.target.value))} className="bg-transparent border-none w-full text-slate-200 font-mono config-input-small focus:ring-0 font-black outline-none p-0" />
+                <input type="number" value={battery.capacityAh} onChange={(e) => handleUpdateBattery('capacityAh', Number(e.target.value))} className="bg-transparent border-none w-full text-slate-200 font-mono config-input-small focus:ring-0 font-bold outline-none p-0" />
               </div>
 
               <div className="flex-1 min-w-[70px] bg-slate-900 p-[7px] rounded-lg border border-slate-800 ring-1 ring-white/5 shadow-inner flex flex-col justify-center">
                 <label className="config-label-small uppercase text-slate-600 font-black block mb-0.5 tracking-widest">INITIAL SOC (%)</label>
-                <input type="number" value={battery.initialSoC} onChange={(e) => handleUpdateBattery('initialSoC', Math.min(100, Number(e.target.value)))} className="bg-transparent border-none w-full text-slate-200 font-mono config-input-small focus:ring-0 font-black outline-none p-0" />
+                <input type="number" value={battery.initialSoC} onChange={(e) => handleUpdateBattery('initialSoC', Math.min(100, Number(e.target.value)))} className="bg-transparent border-none w-full text-slate-200 font-mono config-input-small focus:ring-0 font-bold outline-none p-0" />
               </div>
 
               <div className="w-[40px] flex flex-col gap-1 self-stretch">

@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Chat, GenerateContentResponse, FunctionCall } from "@google/genai";
+import { Chat, GenerateContentResponse, FunctionCall, Part } from "@google/genai";
 import ReactMarkdown from 'react-markdown';
 import { createChatSession, getDynamicSuggestions } from '../services/geminiService';
 import { calculateItemEnergy, getEffectiveSolarHours } from '../services/powerLogic';
@@ -23,7 +23,7 @@ interface ChatBotProps {
 const QuickSuggestion: React.FC<{ label: string; onClick: () => any }> = ({ label, onClick }) => (
   <button 
     onClick={onClick}
-    className="whitespace-nowrap px-2.5 py-1 border text-[9px] font-bold uppercase rounded-full transition-all bg-slate-800 hover:bg-slate-700 border-slate-700 text-slate-300 shadow-sm tracking-widest"
+    className="whitespace-nowrap px-3 py-1.5 border text-[9px] font-black uppercase rounded-full transition-all bg-slate-900/50 hover:bg-slate-800 border-slate-700 text-slate-400 hover:text-white shadow-sm tracking-[0.1em]"
   >
     {label}
   </button>
@@ -31,31 +31,17 @@ const QuickSuggestion: React.FC<{ label: string; onClick: () => any }> = ({ labe
 
 const parseBotMessage = (text: string) => {
   try {
-    // Aggressively clean JSON markers and whitespace
     const cleanText = text.replace(/```json\n?|```/g, '').trim();
-    // Sometimes the model outputs text BEFORE or AFTER the JSON if not careful
     const jsonMatch = cleanText.match(/\{[\s\S]*\}/);
     const target = jsonMatch ? jsonMatch[0] : cleanText;
     const data = JSON.parse(target);
-    if (data.summary && data.expanded) {
-      return { isJson: true, ...data };
-    }
+    if (data.summary && data.expanded) return { isJson: true, ...data };
   } catch (e) { }
   return { isJson: false, text };
 };
 
 const ChatBot: React.FC<ChatBotProps> = ({ 
-  items,
-  totals,
-  battery,
-  charging,
-  modeProp = 'general', 
-  isOpen,
-  onOpen,
-  onClose, 
-  contextItem,
-  onAddLoadItem, 
-  onAddChargingSource 
+  items, totals, battery, charging, modeProp = 'general', isOpen, onOpen, onClose, contextItem, onAddLoadItem, onAddChargingSource 
 }) => {
   const [isMaximized, setIsMaximized] = useState(false);
   const [mode, setMode] = useState<ChatMode>('general');
@@ -100,47 +86,21 @@ const ChatBot: React.FC<ChatBotProps> = ({
         }
         if (messages.length === 0) {
             let greetingText = "";
-            
             if (mode === 'general') {
-                greetingText = "### SOL SUM AI\nI'm your off-grid power engineer. Ask me about system audits, cable sizing, battery life projections, or component compatibility.";
+                greetingText = "### SOL SUM AI\nI'm your off-grid power engineer. Ask me about system audits, cable sizing, or hardware specs.";
             } else if (mode === 'load') {
-                greetingText = "### SPEC ASSISTANT: LOAD ENTRY\nReady to assist with **Spec Entry**. I can extract data from product sheets, model numbers, or raw tech specs. Simply paste the info below and I will prepare the load entry for you.";
+                greetingText = "### SPEC ASST: LOADS\nReady for **Load Entry**. Paste product datasheets or raw model numbers to add new items.";
             } else {
-                greetingText = "### SPEC ASSISTANT: SOURCE ENTRY\nReady to assist with **Power Generation**. Paste solar panel datasheets or charging hardware specifications to add them to your system list.";
+                greetingText = "### SPEC ASST: SOURCES\nReady for **Generation Entry**. Paste solar panel or charger specs to add sources.";
             }
-
-            setMessages([{ 
-                role: 'model', 
-                text: greetingText, 
-                timestamp: new Date(), 
-                category: mode 
-            }]);
+            setMessages([{ role: 'model', text: greetingText, timestamp: new Date(), category: mode }]);
         }
     }
   }, [isOpen, mode]);
 
   useEffect(() => {
-    if (isOpen && contextItem && chatSessionRef.current && lastProcessedContextRef.current !== contextItem.id) {
-       lastProcessedContextRef.current = contextItem.id;
-       const triggerLookup = async () => {
-          await handleSubmit(null, `Technical extraction for: "${contextItem.name}".`, true);
-       };
-       triggerLookup();
-    }
-  }, [isOpen, contextItem]);
-
-  useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, pendingToolCall, isTyping]);
-
-  const handleMoreQs = async () => {
-    setShowMoreSuggestions(!showMoreSuggestions);
-    if (!showMoreSuggestions && dynamicQs.length === 0) {
-      const summary = `System: ${totals.finalSoC.toFixed(0)}% SoC, ${items.length} loads.`;
-      const qs = await getDynamicSuggestions(summary);
-      setDynamicQs(qs);
-    }
-  };
 
   const handleConfirmAction = async () => {
     if (!pendingToolCall || !chatSessionRef.current) return;
@@ -158,21 +118,15 @@ const ChatBot: React.FC<ChatBotProps> = ({
     }]);
 
     setPendingToolCall(null);
-
-    setTimeout(() => {
-      onClose();
-    }, 850);
-
     try {
-      await chatSessionRef.current.sendMessage({
-        message: { 
-          functionResponse: { 
-            name: toolName, 
-            id: toolId,
-            response: { result: `Success: ${itemName} added.` } 
-          } 
-        }
-      });
+      const responsePart: Part = { 
+        functionResponse: { 
+          name: toolName, 
+          id: toolId, 
+          response: { result: `Success: ${itemName} added.` } 
+        } 
+      };
+      await chatSessionRef.current.sendMessage({ message: [responsePart] });
     } catch (e) { console.error("Sync error", e); }
   };
 
@@ -180,158 +134,58 @@ const ChatBot: React.FC<ChatBotProps> = ({
      if (!pendingToolCall || !chatSessionRef.current) return;
      const toolName = pendingToolCall.name;
      const toolId = pendingToolCall.id;
-
-     setMessages(prev => [...prev, { role: 'user', text: "Cancel.", timestamp: new Date(), category: 'general' }]);
+     setMessages(prev => [...prev, { role: 'user', text: "Cancel operation.", timestamp: new Date() }]);
      setPendingToolCall(null);
      try {
-       await chatSessionRef.current.sendMessage({
-         message: { 
-           functionResponse: { 
-             name: toolName, 
-             id: toolId,
-             response: { result: "User cancelled." } 
-           } 
-         }
-       });
-     } catch (e) { console.error("Sync error", e); }
+       const responsePart: Part = { 
+         functionResponse: { 
+           name: toolName, id: toolId, response: { result: "User cancelled." } 
+         } 
+       };
+       await chatSessionRef.current.sendMessage({ message: [responsePart] });
+     } catch (e) { }
   };
 
-  const handleSubmit = async (e: React.FormEvent | null, overrideInput?: string, silent: boolean = false) => {
+  const handleSubmit = async (e: React.FormEvent | null, overrideInput?: string) => {
     if (e) e.preventDefault();
     const textToSend = overrideInput || input;
     if (!textToSend.trim() || !chatSessionRef.current) return;
 
     if (pendingToolCall) {
-      const correctionText = textToSend;
-      const toolResponse = {
-        functionResponse: {
-          name: pendingToolCall.name,
-          id: pendingToolCall.id,
-          response: { result: `Correction: ${correctionText}` }
-        }
-      };
-      setPendingToolCall(null);
-      if (!silent) setMessages(prev => [...prev, { role: 'user', text: correctionText, timestamp: new Date() }]);
-      setInput('');
-      setIsTyping(true);
-      try {
-        await chatSessionRef.current!.sendMessage({ message: toolResponse });
-        const resp2 = await chatSessionRef.current!.sendMessage({ message: correctionText });
-        const nextToolCall = (resp2 as any).functionCalls?.[0] ?? null;
-        if (nextToolCall) {
-          setPendingToolCall(nextToolCall);
-        } else {
-          setMessages(prev => [...prev, {
-            role: 'model',
-            text: "No updated tool call returned. Add watts/hours in the correction.",
-            isError: true,
-            timestamp: new Date(),
-            category: modeProp
-          }]);
-        }
-      } catch (err) {
-        setMessages(prev => [...prev, {
-          role: 'model',
-          text: "Spec Asst correction failed. Hit Reset and retry.",
-          isError: true,
-          timestamp: new Date(),
-          category: modeProp
-        }]);
-        chatSessionRef.current = null;
-      } finally {
-        setIsTyping(false);
-      }
-      return;
+       handleCancelAction();
     }
 
-    if (!silent) setMessages(prev => [...prev, { role: 'user', text: textToSend, timestamp: new Date(), category: 'general' }]);
+    setMessages(prev => [...prev, { role: 'user', text: textToSend, timestamp: new Date() }]);
     setInput('');
     setIsTyping(true);
 
-    if (mode !== 'general') {
-      try {
-        const resp = await chatSessionRef.current!.sendMessage({ message: textToSend });
-        const toolCall = (resp as any).functionCalls?.[0] ?? null;
-        if (toolCall) {
-          setPendingToolCall(toolCall);
-        } else {
-          setMessages(prev => [...prev, {
-            role: 'model',
-            text: "No tool call returned. Try a more specific model/spec.",
-            isError: true,
-            timestamp: new Date(),
-            category: modeProp
-          }]);
-        }
-      } catch (e) {
-        setMessages(prev => [...prev, {
-          role: 'model',
-          text: "Spec Asst session error. Reset and retry.",
-          isError: true,
-          timestamp: new Date(),
-          category: modeProp
-        }]);
-        chatSessionRef.current = null;
-      } finally {
-        setIsTyping(false);
-      }
-      return;
-    }
-
     try {
-        let promptWithContext = textToSend;
-        
-        // In General Chat Mode, ALWAYS inject the live system context so the AI sees what the user sees.
-        // This includes computed values (Wh, Ah) which are critical for explaining "wrong" calcs.
-        const snapshot = `
-[LIVE SYSTEM DATA]
-System Voltage: ${battery.voltage}V | Battery Cap: ${battery.capacityAh}Ah | Initial SoC: ${battery.initialSoC}%
-Net Daily: ${totals.netWh.toFixed(0)}Wh (${totals.netAh.toFixed(1)}Ah) | Final SoC: ${totals.finalSoC.toFixed(0)}%
-
-LOADS (Power Out):
-${items.map(i => {
-  const { wh, ah } = calculateItemEnergy(i, battery.voltage);
-  return `- ${i.name} [${i.category}]: ${i.quantity}x @ ${i.watts}W for ${i.hours}h (${i.dutyCycle}% Duty) = ${wh.toFixed(0)}Wh / ${ah.toFixed(1)}Ah per day`;
-}).join('\n')}
-
-SOURCES (Power In):
-${charging.map(c => {
-  const h = c.type === 'solar' ? getEffectiveSolarHours(c, battery) : c.hours;
-  const eff = c.efficiency || 0.85;
-  const dailyWh = c.unit === 'W' ? c.input * h * eff * c.quantity : c.input * battery.voltage * h * eff * c.quantity;
-  return `- ${c.name} [${c.type}]: ${c.quantity}x @ ${c.input}${c.unit} for ${h.toFixed(1)}h (Eff: ${eff}) = ${dailyWh.toFixed(0)}Wh per day`;
-}).join('\n')}
-`;
-        promptWithContext = `${snapshot}\n\nUser Question: ${textToSend}`;
-
-        const result = await chatSessionRef.current.sendMessageStream({ message: promptWithContext });
+        const result = await chatSessionRef.current.sendMessageStream({ message: textToSend });
         let fullRawText = '';
         let toolCall: FunctionCall | null = null;
-        if (!silent) setMessages(prev => [...prev, { role: 'model', text: '', timestamp: new Date(), category: mode }]);
+        setMessages(prev => [...prev, { role: 'model', text: '', timestamp: new Date(), category: mode }]);
         for await (const chunk of result) {
             const c = chunk as GenerateContentResponse;
             if (c.functionCalls?.length) {
                 toolCall = c.functionCalls[0];
                 break;
             }
-            if (c.text && !silent) {
+            if (c.text) {
                 fullRawText += c.text;
                 setMessages(prev => {
                     const newMsgs = [...prev];
                     const last = newMsgs[newMsgs.length - 1];
-                    if (last && last.role === 'model') {
-                        last.text = fullRawText;
-                    }
+                    if (last && last.role === 'model') last.text = fullRawText;
                     return newMsgs;
                 });
             }
         }
         if (toolCall) {
             setPendingToolCall(toolCall);
-            if (!silent) setMessages(prev => prev.filter(m => m.text !== ''));
+            setMessages(prev => prev.filter(m => m.text !== ''));
         }
     } catch (error: any) {
-        if (!silent) setMessages(prev => [...prev, { role: 'model', text: "Session Reset.", isError: true, timestamp: new Date() }]);
+        setMessages(prev => [...prev, { role: 'model', text: "Session error. Please reset.", isError: true, timestamp: new Date() }]);
         chatSessionRef.current = null;
     } finally { 
         setIsTyping(false); 
@@ -340,64 +194,50 @@ ${charging.map(c => {
 
   const isSpecMode = mode !== 'general';
   const containerClasses = isMaximized
-    ? `fixed inset-4 z-50 rounded-2xl shadow-2xl flex flex-col overflow-hidden border transition-all duration-300 ring-1 ring-white/10 ${isSpecMode ? 'border-purple-500 bg-purple-950' : 'border-slate-700 bg-slate-900'}`
-    : `fixed bottom-6 right-6 w-[30vw] min-w-[400px] h-[85vh] z-50 rounded-2xl shadow-2xl flex flex-col overflow-hidden border transition-all duration-300 ring-1 ring-white/10 ${isSpecMode ? 'border-2 border-purple-500 bg-purple-950 shadow-purple-500/20' : 'border-slate-700 bg-slate-900'}`;
+    ? `fixed inset-4 z-[200] rounded-2xl shadow-2xl flex flex-col overflow-hidden border transition-all duration-300 ${isSpecMode ? 'border-purple-500 bg-purple-950' : 'border-slate-800 bg-slate-900'}`
+    : `fixed bottom-6 right-6 w-[30vw] min-w-[420px] h-[85vh] z-[200] rounded-2xl shadow-2xl flex flex-col overflow-hidden border transition-all duration-300 ${isSpecMode ? 'border-2 border-purple-500 bg-purple-950 shadow-purple-500/20' : 'border-slate-800 bg-slate-900'}`;
 
   return (
     <>
       {!isOpen && (
         <button 
           onClick={onOpen} 
-          className="fixed bottom-6 right-6 w-14 h-14 bg-[rgb(64,33,84)] rounded-full shadow-[0_0_20px_rgba(64,33,84,0.4)] transition-all hover:scale-110 active:scale-95 z-50 ring-4 ring-slate-900/80 flex items-center justify-center text-white p-0 overflow-hidden"
+          className="fixed bottom-6 right-6 w-16 h-16 bg-blue-600 rounded-full shadow-2xl transition-all hover:scale-110 active:scale-95 z-[200] flex items-center justify-center text-white p-0 group overflow-hidden"
           aria-label="Open Chat"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" className="w-[70%] h-[55%] fill-current text-white m-auto">
-            <g transform="translate(0, -2)">
-              <path d="M75.1,40h-21l2-29.1a3,3,0,0,0-5.5-1.8L22.3,55a3,3,0,0,0,2.6,4.6H46.3L44.1,89.1a3,3,0,0,0,2.1,3.1h.9a3,3,0,0,0,2.6-1.4l28-46.3A3,3,0,0,0,75.1,40ZM51,77l1.5-20.2a3,3,0,0,0-3-3.2H30.3l19-31L47.9,42.8a3,3,0,0,0,3,3.2H69.8Z"/>
-            </g>
-          </svg>
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-8 h-8 group-hover:animate-bounce"><path d="M4.913 2.658c2.075-.27 4.19-.408 6.337-.408 2.147 0 4.262.139 6.337.408 1.922.25 3.413 1.861 3.413 3.703v6.113c0 1.842-1.491 3.453-3.413 3.703-2.075.27-4.19.408-6.337.408-2.147 0-4.262-.139-6.337-.408-1.922-.25-3.413-1.861-3.413-3.703V6.361c0-1.842 1.491-3.453 3.413-3.703Z" /><path d="M10.243 19.912a22.626 22.626 0 0 0 3.014 0 3.37 3.37 0 0 1 2.042 1.135 1.977 1.977 0 0 1-.513 3.227 10.125 10.125 0 0 1-5.072 0 1.977 1.977 0 0 1-.513-3.227 3.37 3.37 0 0 1 2.042-1.135Z" /></svg>
         </button>
       )}
 
       {isOpen && (
         <div className={containerClasses}>
-          <div className={`p-3 flex justify-between items-center border-b shrink-0 relative z-50 ${isSpecMode ? 'bg-purple-950 border-purple-500/30' : 'bg-slate-950 border-slate-800'}`}>
-            <h3 className="app-header-font flex items-center gap-2.5 text-[9px] text-slate-300 tracking-wider">
-              <span className={`w-2 h-2 rounded-full ${isSpecMode ? 'bg-purple-400 shadow-[0_0_12px_rgba(168,85,247,0.8)] animate-pulse' : 'bg-blue-500'}`}></span>
+          <div className={`p-4 flex justify-between items-center border-b shrink-0 relative z-[210] ${isSpecMode ? 'bg-purple-950 border-purple-500/30' : 'bg-slate-950 border-slate-800'}`}>
+            <h3 className="app-header-font flex items-center gap-2.5 text-[10px] text-slate-300">
+              <span className={`w-2.5 h-2.5 rounded-full ${isSpecMode ? 'bg-purple-400 shadow-[0_0_15px_rgba(168,85,247,0.8)]' : 'bg-blue-500'}`}></span>
               {isSpecMode ? 'SPEC ASST.' : 'SOL SUM AI'}
             </h3>
-            <div className="flex items-center gap-1.5">
-                <button onClick={() => setMessages([])} className="text-[9px] text-slate-600 hover:text-rose-400 font-bold uppercase mr-3 transition-colors tracking-widest">Reset</button>
-                <button onClick={() => setIsMaximized(!isMaximized)} className="p-1 hover:bg-white/10 rounded transition-colors text-slate-400"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-3.5 h-3.5"><path strokeLinecap="round" strokeLinejoin="round" d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75h-4.5m4.5 0v4.5m0-4.5L15 9m5.25 11.25h-4.5m4.5 0v-4.5m0 4.5L15 15" /></svg></button>
-                <button onClick={onClose} className="p-1 hover:bg-white/10 rounded transition-colors text-slate-400"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" /></svg></button>
+            <div className="flex items-center gap-3">
+                <button onClick={() => setMessages([])} className="text-[9px] text-slate-600 hover:text-rose-400 font-black uppercase transition-colors tracking-widest">Clear</button>
+                <button onClick={onClose} className="p-1 hover:bg-white/10 rounded transition-colors text-slate-400"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" /></svg></button>
             </div>
           </div>
           
-          <div className={`flex-1 overflow-y-auto p-4 space-y-4 pb-32 scrollbar-thin scrollbar-thumb-slate-700 ${isSpecMode ? 'bg-purple-950' : 'bg-slate-900'}`}>
+          <div className="flex-1 overflow-y-auto p-5 space-y-5 pb-32 no-scrollbar">
             {messages.map((msg, i) => {
                 const parsed = msg.role === 'model' ? parseBotMessage(msg.text) : { isJson: false, text: msg.text };
                 return (
                   <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} animate-fade-in`}>
-                     <div className={`max-w-[85%] px-4 py-2.5 shadow-xl rounded-xl ${msg.role === 'user' ? 'bg-slate-800 text-white rounded-tr-none border border-slate-700' : 'bg-slate-950 border border-slate-800 text-slate-300 rounded-tl-none shadow-black/40'}`}>
+                     <div className={`max-w-[85%] px-4 py-3 rounded-2xl ${msg.role === 'user' ? 'bg-blue-600 text-white rounded-tr-none' : 'bg-slate-950 border border-slate-800 text-slate-300 rounded-tl-none'}`}>
                         {parsed.isJson ? (
-                          <div className="flex flex-col gap-1.5">
-                            <div className="prose prose-invert prose-sm text-slate-200 leading-snug text-[13px]">
-                              <ReactMarkdown>{parsed.summary}</ReactMarkdown>
-                            </div>
+                          <div className="flex flex-col gap-2">
+                            <div className="prose prose-invert prose-sm text-slate-200 leading-relaxed text-[13px]"><ReactMarkdown>{parsed.summary}</ReactMarkdown></div>
                             <details className="group">
-                              <summary className="cursor-pointer text-[9px] text-blue-400 hover:text-blue-300 font-black uppercase tracking-widest list-none mt-1">
-                                <span className="bg-slate-900 px-2 py-1 rounded border border-slate-800 group-open:hidden transition-colors">MORE...</span>
-                                <span className="bg-slate-900 px-2 py-1 rounded border border-slate-800 hidden group-open:inline transition-colors">LESS...</span>
-                              </summary>
-                              <div className="mt-3 pt-3 border-t border-slate-800 prose prose-invert prose-sm text-slate-300 animate-in fade-in slide-in-from-top-1 text-[12px]">
-                                <ReactMarkdown>{parsed.expanded}</ReactMarkdown>
-                              </div>
+                              <summary className="cursor-pointer text-[9px] text-blue-400 font-black uppercase tracking-widest list-none mt-2">More Details</summary>
+                              <div className="mt-4 pt-4 border-t border-slate-800 prose prose-invert prose-sm text-slate-400 text-[12px]"><ReactMarkdown>{parsed.expanded}</ReactMarkdown></div>
                             </details>
                           </div>
                         ) : (
-                          <div className="prose prose-invert prose-sm text-slate-200 leading-snug whitespace-pre-wrap text-[13px]">
-                            <ReactMarkdown>{parsed.text}</ReactMarkdown>
-                          </div>
+                          <div className="prose prose-invert prose-sm text-slate-200 text-[13px] leading-relaxed"><ReactMarkdown>{parsed.text}</ReactMarkdown></div>
                         )}
                      </div>
                   </div>
@@ -405,54 +245,42 @@ ${charging.map(c => {
             })}
             
             {pendingToolCall && (
-                <div className="mx-1 mt-3 rounded-lg shadow-[0_0_20px_rgba(168,85,247,0.3)] overflow-hidden border bg-[rgb(48,10,84)] border-purple-500 animate-fade-in-up">
-                    <div className="px-3 py-2 bg-[rgb(48,10,84)] border-b border-purple-500/50 flex items-center gap-2">
-                        <span className="text-yellow-400 text-base">⚡</span>
-                        <span className="text-[9px] font-black text-white uppercase tracking-[0.12em]">Action Required</span>
+                <div className="mx-1 mt-4 rounded-xl shadow-[0_0_30px_rgba(168,85,247,0.3)] overflow-hidden border bg-purple-900/10 border-purple-500 animate-fade-in-up action-required-block">
+                    <div className="px-4 py-2.5 bg-purple-600/20 border-b border-purple-500/30 flex items-center justify-between">
+                        <span className="text-[10px] font-black text-white uppercase tracking-[0.15em]">Action Required</span>
+                        <span className="text-purple-400 font-mono text-[9px] uppercase tracking-tighter">{pendingToolCall.name}</span>
                     </div>
-                    <div className="p-4 space-y-4">
-                        <div className="text-[13px] font-bold text-white uppercase tracking-wider border-b border-white/10 pb-1.5">
-                            {String(pendingToolCall.args?.['name'] || 'Unknown Item')}
-                        </div>
-                        <div className="space-y-1.5">
+                    <div className="p-5 space-y-4">
+                        <div className="text-[14px] font-black text-white uppercase tracking-wider">{String(pendingToolCall.args?.['name'] || 'Unknown Item')}</div>
+                        <div className="grid grid-cols-2 gap-3">
                             {Object.entries(pendingToolCall.args || {}).map(([k, v]) => k !== 'name' && (
-                                <div key={k} className="flex justify-between items-center text-[11px] font-mono">
-                                    <span className="text-slate-400 capitalize">{k}:</span>
-                                    <span className="text-purple-300 font-bold">{String(v)}</span>
+                                <div key={k} className="bg-slate-950/50 p-2 rounded-lg border border-white/5">
+                                    <div className="text-[8px] text-slate-500 uppercase font-black tracking-widest mb-1">{k}</div>
+                                    <div className="text-purple-300 font-mono text-[11px] font-bold">{String(v)}</div>
                                 </div>
                             ))}
                         </div>
-                        <div className="flex gap-2.5 pt-1.5">
-                            <button onClick={handleCancelAction} className="flex-1 py-2 text-[9px] font-black uppercase text-slate-400 hover:text-white border border-slate-600 hover:border-slate-400 rounded transition-all tracking-widest">
-                                Cancel
-                            </button>
-                            <button onClick={handleConfirmAction} className="flex-1 py-2 text-[9px] font-black uppercase bg-purple-600 hover:bg-purple-500 text-white rounded shadow-lg shadow-purple-900/50 transition-all active:scale-95 tracking-widest">
-                                Confirm Add
-                            </button>
+                        <div className="flex gap-3 pt-2">
+                            <button onClick={handleCancelAction} className="flex-1 py-2.5 text-[10px] font-black uppercase text-slate-400 hover:text-white border border-slate-700 hover:border-slate-500 rounded-lg transition-all tracking-widest">Cancel</button>
+                            <button onClick={handleConfirmAction} className="flex-1 py-2.5 text-[10px] font-black uppercase bg-purple-600 hover:bg-purple-500 text-white rounded-lg shadow-xl shadow-purple-900/50 transition-all active:scale-95 tracking-widest">Confirm Add</button>
                         </div>
                     </div>
                 </div>
             )}
-            
-            {isTyping && <div className="flex gap-1 p-1.5 px-3 bg-slate-800 w-fit rounded-full"><div className="w-1 h-1 bg-blue-500 rounded-full animate-bounce"></div><div className="w-1 h-1 bg-blue-500 rounded-full animate-bounce delay-75"></div><div className="w-1 h-1 bg-blue-500 rounded-full animate-bounce delay-150"></div></div>}
             <div ref={messagesEndRef} />
           </div>
 
-          <div className="bg-slate-950 border-t border-slate-800 p-3 relative z-40 shadow-[0_-15px_40px_rgba(0,0,0,0.5)]">
-                <div className="absolute bottom-full left-0 right-0 p-3 flex gap-1.5 overflow-x-auto bg-gradient-to-t from-slate-950 to-transparent no-scrollbar pointer-events-auto">
-                    <QuickSuggestion label="Run System Audit" onClick={() => handleSubmit(null, "Run System Audit")} />
-                    <QuickSuggestion label="Cable Sizing" onClick={() => handleSubmit(null, "What cable sizes for 24V?")} />
-                    {showMoreSuggestions && dynamicQs.map(q => <QuickSuggestion key={q} label={q} onClick={() => handleSubmit(null, q)} />)}
-                    <button onClick={handleMoreQs} className="px-2.5 py-1 bg-blue-600/10 text-blue-500 rounded-full text-[8px] font-black uppercase border border-blue-600/20 hover:bg-blue-600/20 transition-all tracking-widest">
-                      {showMoreSuggestions ? "LESS..." : "MORE..."}
-                    </button>
+          <div className="bg-slate-950 border-t border-slate-800 p-4 shrink-0">
+                <div className="flex gap-2 overflow-x-auto no-scrollbar pb-3">
+                    <QuickSuggestion label="System Audit" onClick={() => handleSubmit(null, "Run a technical audit on my current setup.")} />
+                    <QuickSuggestion label="Cable Guide" onClick={() => handleSubmit(null, "Give me a cable sizing guide for these loads.")} />
+                    <QuickSuggestion label="Expand Battery" onClick={() => handleSubmit(null, "What happens if I double my battery capacity?")} />
                 </div>
-
                 <form onSubmit={(e) => handleSubmit(e)} className="flex gap-2.5">
-                  <input type="text" value={input} onChange={(e) => setInput(e.target.value)} placeholder="Type model name..."
-                    className="flex-1 bg-slate-900 border border-slate-800 rounded-xl px-4 py-2.5 text-[13px] text-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 transition-all shadow-inner outline-none font-medium" />
-                  <button type="submit" disabled={!input.trim() || isTyping} className="p-3 bg-blue-600 hover:bg-blue-500 rounded-xl text-white disabled:opacity-50 shadow-xl active:scale-90 transition-all">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M6 12 3.269 3.126A59.768 59.768 0 0 1 21.485 12 59.77 59.77 0 0 1 3.27 20.876L5.999 12Zm0 0h7.5" /></svg>
+                  <input type="text" value={input} onChange={(e) => setInput(e.target.value)} placeholder="Type model number or ask a question..."
+                    className="flex-1 bg-slate-900 border border-slate-800 rounded-xl px-4 py-3 text-[13px] text-white focus:outline-none focus:border-blue-500 transition-all font-medium" />
+                  <button type="submit" disabled={!input.trim() || isTyping} className="p-3 bg-blue-600 hover:bg-blue-500 rounded-xl text-white shadow-lg active:scale-90 transition-all">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M6 12 3.269 3.126A59.768 59.768 0 0 1 21.485 12 59.77 59.77 0 0 1 3.27 20.876L5.999 12Zm0 0h7.5" /></svg>
                   </button>
                 </form>
           </div>

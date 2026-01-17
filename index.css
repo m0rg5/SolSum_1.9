@@ -1,26 +1,28 @@
+
 /* 
    SOL SUM MASTER STYLES 
-   Scoped to .app-root to avoid global pollution and fighting Tailwind.
+   Engineered for absolute visual consistency across deployment environments.
 */
 
-/* CB bg */
-.bg-\[rgb\(64\2c 33\2c 84\)\] {
-    background-color: #2c93b2 !important;
+:root {
+  --bg-main: #0f172a;
+  --bg-header: #020617;
+  --accent-purple: #9333ea;
+  --accent-blue: #3b82f6;
+  --text-slate: #94a3b8;
 }
 
-/* VALUE FIELDS TWEAKS */
-button, input, optgroup, select, textarea {
-    font-size: 89% !important;
-  }
-.rounded {
-    border-radius: 0.2rem !important;
-}
-.px-1 {
-    padding-left: 0.1rem !important;
-    padding-right: 0.1rem !important;
+/* --- GLOBAL RESET --- */
+* {
+  box-sizing: border-box;
 }
 
-/* --- GLOBAL RESET & BEHAVIOR --- */
+body {
+  margin: 0;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
 input::-webkit-outer-spin-button,
 input::-webkit-inner-spin-button {
   -webkit-appearance: none;
@@ -33,75 +35,61 @@ input[type=number] {
 
 /* --- APP SCOPED STYLES --- */
 .app-root .app-header-font {
-  font-weight: 500;
+  font-family: 'Inter', sans-serif;
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
-  line-height: 1.2;
+  letter-spacing: 0.1em;
 }
 
 .app-root .font-black {
-  font-weight: 500;
+  font-weight: 900;
 }
 
-.app-root .text-5xl {
-  font-size: 2.8rem;
-  line-height: 1;
+/* Custom Scrollbar */
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* Autocomplete Dropdown */
+.autocomplete-list {
+  background: rgba(15, 23, 42, 0.95);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6);
 }
 
-.app-root .text-lg {
-  font-size: 1.7rem;
+.autocomplete-item:hover {
+  background: rgba(59, 130, 246, 0.15);
 }
 
-/* Layout Overrides */
-.app-root .pb-4 {
-    padding-bottom: 0 !important; 
+/* Spec Asst Action Required Block */
+@keyframes pulse-purple {
+  0% { box-shadow: 0 0 0 0 rgba(147, 51, 234, 0.4); }
+  70% { box-shadow: 0 0 0 10px rgba(147, 51, 234, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(147, 51, 234, 0); }
 }
 
-/* 40% Reduction Layout Tweaks */
-.app-root .compact-section {
-  margin-top: 1.5rem !important;
+.action-required-block {
+  border: 1px solid var(--accent-purple);
+  background: rgba(48, 10, 84, 0.4);
+  animation: pulse-purple 2s infinite;
 }
 
-.app-root .space-y-8 > :not([hidden]) ~ :not([hidden]) {
-  margin-top: 1.25rem;
+/* Transitions */
+.fade-in {
+  animation: fadeIn 0.3s ease-out forwards;
 }
 
-/* Configuration Inputs - Dense Mode */
-.app-root .config-label-small {
-  font-size: 7px;
-  letter-spacing: 0.15em;
-  line-height: 1;
-}
-
-.app-root .config-input-small {
-  font-size: 0.8rem;
-  height: 1.1rem;
-}
-
-/* ChatBot Specifics */
-.app-root .ring-slate-900\/80 {
-  --tw-ring-color: rgb(15 23 42 / 0.2);
-}
-
-.app-root .no-scrollbar::-webkit-scrollbar {
-  display: none;
-}
-
-.app-root .no-scrollbar {
-  -ms-overflow-style: none;
-  scrollbar-width: none;
-}
-
-.app-root .spec-asst-glow {
-    box-shadow: 0 0 30px rgba(168, 85, 247, 0.3);
-}
-
-/* Animations */
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(10px); }
+  from { opacity: 0; transform: translateY(8px); }
   to { opacity: 1; transform: translateY(0); }
 }
 
-.app-root .animate-fade-in {
-  animation: fadeIn 0.3s ease-out forwards;
+.app-root .config-input-small {
+  font-size: 0.75rem;
+  letter-spacing: -0.01em;
+}
+
+.app-root .text-green-glow {
+  color: #10b981;
+  text-shadow: 0 0 10px rgba(16, 185, 129, 0.3);
 }
